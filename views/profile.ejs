@@ -1,0 +1,23 @@
+<%- include('partials/header') %>
+<style>
+  .profile-container { max-width: 600px; margin: 50px auto; }
+  .profile-form { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); animation: slideUp 1s ease-out; }
+  @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+<div class="profile-container">
+  <h2 class="text-center mb-4">Hồ Sơ Của Tôi</h2>
+  <div class="profile-form">
+    <form action="/user/profile" method="POST">
+      <div class="mb-3">
+        <label for="name" class="form-label">Tên</label>
+        <input type="text" name="profile[name]" id="name" class="form-control form-control-lg" value="<%= user.profile ? user.profile.name : '' %>" required>
+      </div>
+      <div class="mb-3">
+        <label for="phone" class="form-label">Số Điện Thoại</label>
+        <input type="tel" name="profile[phone]" id="phone" class="form-control form-control-lg" value="<%= user.profile ? user.profile.phone : '' %>" required>
+      </div>
+      <button type="submit" class="btn btn-hotel w-100">Cập Nhật</button>
+    </form>
+  </div>
+</div>
+<%- include('partials/footer') %>

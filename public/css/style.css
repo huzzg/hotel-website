@@ -1,0 +1,16 @@
+body { margin-top: 70px; }
+.btn-hotel { transition: all 0.3s ease; }
+.btn-hotel:active { transform: scale(0.95); }
+.room-card .card-body { padding: 20px; }
+.carousel-caption { border-radius: 10px; }
+#chatbot { transition: opacity 0.3s; }
+#chatbot:hover { opacity: 0.9; }
+
+body {
+  margin-top: 80px; /* Tăng lên để phù hợp với chiều cao navbar */
+  padding-top: 20px; /* Thêm padding để tạo khoảng cách an toàn */
+}
+
+.container {
+  padding-top: 30px; /* Đảm bảo container có khoảng cách với đầu trang */
+}

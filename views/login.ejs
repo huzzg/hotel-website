@@ -1,0 +1,37 @@
+<%- include('partials/header') %>
+<style>
+  .login-container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding-top: 20px; /* Thêm padding-top để tránh bị che */
+  }
+  .login-form {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    animation: slideUp 1s ease-out;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+</style>
+<div class="login-container">
+  <h2 class="text-center mb-4">Đăng Nhập</h2>
+  <div class="login-form">
+    <form action="/auth/login" method="POST">
+      <div class="mb-3">
+        <label for="username" class="form-label">Tên Đăng Nhập</label>
+        <input type="text" name="username" id="username" class="form-control form-control-lg" required>
+      </div>
+      <div class="mb-3">
+        <label for="password" class="form-label">Mật Khẩu</label>
+        <input type="password" name="password" id="password" class="form-control form-control-lg" required>
+      </div>
+      <button type="submit" class="btn btn-hotel w-100">Đăng Nhập</button>
+    </form>
+    <p class="mt-3 text-center">Chưa có tài khoản? <a href="/auth/register" class="text-primary">Đăng Ký</a></p>
+  </div>
+</div>
+<%- include('partials/footer') %>

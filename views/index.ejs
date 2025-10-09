@@ -1,0 +1,212 @@
+<%- include('partials/header') %>
+<style>
+  body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #F5F7FA;
+    margin-top: 70px;
+    overflow-x: hidden;
+  }
+  .banner {
+    background: linear-gradient(rgba(0, 163, 224, 0.7), rgba(0, 123, 255, 0.7)), url('/images/hotel-banner.jpg');
+    background-size: cover;
+    background-position: center;
+    color: white;
+    padding: 100px 0;
+    text-align: center;
+    animation: fadeIn 1s ease-in;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .search-bar {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    margin-bottom: 40px;
+    animation: slideUp 1s ease-out;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .service-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+  }
+  .service-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  }
+  .room-card {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .room-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  }
+  .room-card img { height: 250px; object-fit: cover; }
+  .btn-hotel {
+    background: linear-gradient(90deg, #00A3E0, #007BFF);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 25px;
+    transition: all 0.3s;
+  }
+  .btn-hotel:hover {
+    background: linear-gradient(90deg, #007BFF, #0056B3);
+    transform: scale(1.05);
+  }
+  .carousel-inner img { height: 400px; object-fit: cover; }
+  #chatbot { border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+</style>
+<div class="container mt-5">
+  <!-- Banner Khuyến mãi -->
+  <div class="banner mb-5">
+    <h1>Chào Mừng Đến Với Khách Sạn Của Chúng Tôi</h1>
+    <p class="lead">Giảm đến 10% cho lần đặt phòng đầu tiên. Mã: <strong>HOTELNEW</strong></p>
+    <button class="btn btn-hotel mt-3" onclick="navigator.clipboard.writeText('HOTELNEW')">Sao Chép Mã</button>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-bar">
+    <h3 class="mb-4">Tìm Phòng Của Bạn</h3>
+    <form action="/user/search" method="GET" class="row g-3">
+      <div class="col-md-4">
+        <input type="text" name="location" class="form-control form-control-lg" placeholder="Địa điểm (VD: Đà Nẵng)">
+      </div>
+      <div class="col-md-2">
+        <input type="date" name="checkIn" class="form-control form-control-lg" required>
+      </div>
+      <div class="col-md-2">
+        <input type="date" name="checkOut" class="form-control form-control-lg" required>
+      </div>
+      <div class="col-md-2">
+        <select name="type" class="form-select form-select-lg">
+          <option value="">Tất cả loại phòng</option>
+          <option value="Standard">Standard</option>
+          <option value="Deluxe">Deluxe</option>
+          <option value="Suite">Suite</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-hotel w-100">Tìm Phòng</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Danh sách Dịch vụ Khách Sạn -->
+  <h3 class="mb-4">Dịch Vụ Của Chúng Tôi</h3>
+  <div class="row g-4 mb-5">
+    <div class="col-md-3">
+      <div class="service-card">
+        <i class="bi bi-house-door" style="font-size: 2.5em; color: #00A3E0;"></i>
+        <p class="mt-2 fw-bold">Đặt Phòng</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="service-card">
+        <i class="bi bi-person-check" style="font-size: 2.5em; color: #00A3E0;"></i>
+        <p class="mt-2 fw-bold">Check-in Online</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="service-card">
+        <i class="bi bi-star" style="font-size: 2.5em; color: #00A3E0;"></i>
+        <p class="mt-2 fw-bold">Đánh Giá Phòng</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="service-card">
+        <a href="/user/history" class="text-decoration-none text-dark fw-bold">Xem Lịch Sử</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Carousel Điểm đến -->
+  <h3 class="mb-4">Khám Phá Điểm Đến</h3>
+  <div id="destinationCarousel" class="carousel slide mb-5" data-bs-ride="carousel">
+    <div class="carousel-inner">
+      <div class="carousel-item active">
+        <img src="/images/da-nang-hotel.jpg" class="d-block w-100" alt="Đà Nẵng">
+        <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 p-3 rounded">
+          <h5>Đà Nẵng</h5>
+          <p>Khách sạn ven biển tuyệt đẹp!</p>
+        </div>
+      </div>
+      <div class="carousel-item">
+        <img src="/images/ha-noi-hotel.jpg" class="d-block w-100" alt="Hà Nội">
+        <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 p-3 rounded">
+          <h5>Hà Nội</h5>
+          <p>Trải nghiệm văn hóa độc đáo!</p>
+        </div>
+      </div>
+      <div class="carousel-item">
+        <img src="/images/phuket-hotel.jpg" class="d-block w-100" alt="Phuket">
+        <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 p-3 rounded">
+          <h5>Phuket</h5>
+          <p>Nghỉ dưỡng sang trọng!</p>
+        </div>
+      </div>
+    </div>
+    <button class="carousel-control-prev" type="button" data-bs-target="#destinationCarousel" data-bs-slide="prev">
+      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+      <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#destinationCarousel" data-bs-slide="next">
+      <span class="carousel-control-next-icon" aria-hidden="true"></span>
+      <span class="visually-hidden">Next</span>
+    </button>
+  </div>
+
+  <!-- Danh sách Phòng nổi bật -->
+  <h3 class="mb-4">Phòng Nổi Bật</h3>
+  <div class="row g-4">
+    <% if (rooms && rooms.length) { %>
+      <% rooms.forEach(room => { %>
+        <div class="col-md-4">
+          <div class="room-card">
+            <img src="/images/<%= room.roomNumber %>.jpg" class="card-img-top" alt="<%= room.type %>">
+            <div class="card-body">
+              <h5 class="card-title"><%= room.type %> - <%= room.roomNumber %></h5>
+              <p class="card-text">Địa điểm: <%= room.location %></p>
+              <p class="card-text"><strong>Giá: $<%= room.price %>/đêm</strong></p>
+              <form action="/user/book" method="POST">
+                <input type="hidden" name="roomId" value="<%= room._id %>">
+                <input type="date" name="checkIn" class="form-control mb-2" required>
+                <input type="date" name="checkOut" class="form-control mb-2" required>
+                <button type="submit" class="btn btn-hotel w-100">Đặt Ngay</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    <% } else { %>
+      <p class="text-center text-muted">Không có phòng nào khả dụng.</p>
+    <% } %>
+  </div>
+
+  <!-- Chatbot -->
+  <div id="chatbot" class="fixed-bottom p-3 bg-white border" style="width: 300px; right: 20px;">
+    <button onclick="toggleChatbot()" class="btn btn-hotel w-100">Hỗ Trợ Khách Hàng</button>
+    <div id="chatbot-body" style="display:none;">
+      <p class="text-muted small">Xin chào! Bạn cần giúp gì?</p>
+      <input type="text" id="chat-input" class="form-control mb-2" placeholder="Nhập tin nhắn">
+      <button onclick="sendMessage()" class="btn btn-hotel w-100">Gửi</button>
+      <div id="chat-output" class="mt-2 small"></div>
+    </div>
+  </div>
+</div>
+<%- include('partials/footer') %>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/script.js"></script>

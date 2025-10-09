@@ -1,0 +1,32 @@
+<%- include('partials/header') %>
+<style>
+  .history-container { max-width: 800px; margin: 50px auto; }
+  .history-table { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); animation: slideUp 1s ease-out; }
+  @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+<div class="history-container">
+  <h2 class="text-center mb-4">Lịch Sử Đặt Phòng</h2>
+  <div class="history-table">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Phòng</th>
+          <th>Ngày Nhận</th>
+          <th>Ngày Trả</th>
+          <th>Trạng Thái</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% bookings.forEach(booking => { %>
+          <tr>
+            <td><%= booking.roomId.type %> - <%= booking.roomId.roomNumber %></td>
+            <td><%= booking.checkIn.toLocaleDateString() %></td>
+            <td><%= booking.checkOut.toLocaleDateString() %></td>
+            <td><%= booking.status %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('partials/footer') %>
