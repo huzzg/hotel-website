@@ -1,105 +1,81 @@
+<!-- views/admin-dashboard.ejs -->
 <%- include('partials/header') %>
-<style>
-  .admin-container { max-width: 1000px; margin: 50px auto; }
-  .admin-tabs { background: white; padding: 10px; border-radius: 15px 15px 0 0; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-  .tab-content { background: white; padding: 20px; border-radius: 0 0 15px 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); animation: slideUp 1s ease-out; }
-  .create-form { margin-bottom: 20px; }
-  @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-</style>
-<div class="admin-container">
-  <h2 class="text-center mb-4">Bảng Điều Khiển Quản Lý</h2>
-  <div class="create-form">
-    <h4>Tạo Phòng Mới</h4>
-    <form action="/admin/create-room" method="POST" class="row g-3">
-      <div class="col-md-3">
-        <input type="text" name="roomNumber" class="form-control form-control-lg" placeholder="Số phòng" required>
-      </div>
-      <div class="col-md-3">
-        <input type="text" name="type" class="form-control form-control-lg" placeholder="Loại phòng" required>
-      </div>
-      <div class="col-md-2">
-        <input type="number" name="price" class="form-control form-control-lg" placeholder="Giá" required>
-      </div>
-      <div class="col-md-2">
-        <input type="text" name="location" class="form-control form-control-lg" placeholder="Địa điểm" required>
-      </div>
-      <div class="col-md-2">
-        <button type="submit" class="btn btn-hotel w-100">Tạo Phòng</button>
-      </div>
-    </form>
+<div class="container mt-5 pt-5">
+  <h2 class="mb-4">Bảng Điều Khiển Quản Trị</h2>
+
+  <!-- Thống kê -->
+  <div class="row mb-4">
+    <div class="col-md-4"><div class="card text-white bg-primary"><div class="card-body"><h5>Doanh thu</h5><h3><%= revenue %>$</h3></div></div></div>
+    <div class="col-md-4"><div class="card text-white bg-success"><div class="card-body"><h5>Tỷ lệ lấp đầy</h5><h3><%= occupancyRate %>%</h3></div></div></div>
+    <div class="col-md-4"><div class="card text-white bg-info"><div class="card-body"><h5>Đặt phòng</h5><h3><%= bookings.length %></h3></div></div></div>
   </div>
-  <ul class="nav nav-tabs admin-tabs" id="adminTabs" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#rooms" type="button" role="tab">Phòng</button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="bookings-tab" data-bs-toggle="tab" data-bs-target="#bookings" type="button" role="tab">Đặt Phòng</button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports" type="button" role="tab">Báo Cáo</button>
-    </li>
-  </ul>
-  <div class="tab-content" id="adminTabContent">
-    <div class="tab-pane fade show active" id="rooms" role="tabpanel">
-      <h4>Danh Sách Phòng</h4>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Số Phòng</th>
-            <th>Loại</th>
-            <th>Giá</th>
-            <th>Địa Điểm</th>
-            <th>Trạng Thái</th>
-            <th>Hành Động</th>
-          </tr>
-        </thead>
+
+  <!-- Quản lý mã giảm giá -->
+  <div class="card mb-4">
+    <div class="card-header">Quản Lý Mã Giảm Giá</div>
+    <div class="card-body">
+      <form action="/admin/discount/create" method="POST" class="row g-2 mb-3">
+        <div class="col"><input type="text" name="code" placeholder="Mã" class="form-control" required></div>
+        <div class="col"><input type="number" name="discountPercent" placeholder="%" min="1" max="100" class="form-control" required></div>
+        <div class="col"><input type="date" name="expiresAt" class="form-control" required></div>
+        <div class="col"><button type="submit" class="btn btn-success">Thêm</button></div>
+      </form>
+
+      <table class="table table-sm">
+        <thead><tr><th>Mã</th><th>Giảm</th><th>Hết hạn</th><th>Trạng thái</th><th></th></tr></thead>
         <tbody>
-          <% rooms.forEach(room => { %>
+          <% discounts.forEach(d => { %>
             <tr>
-              <td><%= room.roomNumber %></td>
-              <td><%= room.type %></td>
-              <td><%= room.price %></td>
-              <td><%= room.location %></td>
-              <td><%= room.status %></td>
+              <td><strong><%= d.code %></strong></td>
+              <td><%= d.discountPercent %>%</td>
+              <td><%= new Date(d.expiresAt).toLocaleDateString('vi-VN') %></td>
+              <td><%= d.isActive ? 'Hoạt động' : 'Hết hạn' %></td>
               <td>
-                <% if (room.status === 'booked') { %>
-                  <form action="/admin/release-room/<%= room._id %>" method="POST" style="display:inline;">
-                    <button type="submit" class="btn btn-hotel btn-sm">Trả Phòng</button>
-                  </form>
-                <% } %>
+                <form action="/admin/discount/delete/<%= d._id %>" method="POST" style="display:inline">
+                  <button type="submit" class="btn btn-danger btn-sm">Xóa</button>
+                </form>
               </td>
             </tr>
           <% }) %>
         </tbody>
       </table>
     </div>
-    <div class="tab-pane fade" id="bookings" role="tabpanel">
-      <h4>Danh Sách Đặt Phòng</h4>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Phòng</th>
-            <th>Ngày Nhận</th>
-            <th>Ngày Trả</th>
-            <th>Trạng Thái</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% bookings.forEach(booking => { %>
-            <tr>
-              <td><%= booking.roomId.roomNumber %> - <%= booking.roomId.type %></td>
-              <td><%= booking.checkIn.toLocaleDateString() %></td>
-              <td><%= booking.checkOut.toLocaleDateString() %></td>
-              <td><%= booking.status %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
-    <div class="tab-pane fade" id="reports" role="tabpanel">
-      <h4>Báo Cáo</h4>
-      <p>Doanh Thu: $<%= revenue %></p>
-      <p>Tỷ Lệ Chiếm Phòng: <%= occupancyRate %>%</p>
+  </div>
+
+  <!-- Quản lý phòng -->
+  <div class="card">
+    <div class="card-header">Quản Lý Phòng</div>
+    <div class="card-body">
+      <form action="/admin/create-room" method="POST" class="row g-2 mb-3">
+        <div class="col"><input type="text" name="roomNumber" placeholder="Số phòng" class="form-control" required></div>
+        <div class="col"><input type="text" name="type" placeholder="Loại" class="form-control" required></div>
+        <div class="col"><input type="number" name="price" placeholder="Giá" class="form-control" required></div>
+        <div class="col"><input type="text" name="location" placeholder="Địa điểm" class="form-control" required></div>
+        <div class="col"><button type="submit" class="btn btn-primary">Thêm</button></div>
+      </form>
+
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead><tr><th>Số phòng</th><th>Loại</th><th>Giá</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <% rooms.forEach(r => { %>
+              <tr>
+                <td><%= r.roomNumber %></td>
+                <td><%= r.type %></td>
+                <td><%= r.price %>$</td>
+                <td><span class="badge bg-<%= r.status === 'available' ? 'success' : 'danger' %>"><%= r.status === 'available' ? 'Trống' : 'Đã đặt' %></span></td>
+                <td>
+                  <% if (r.status === 'booked') { %>
+                    <form action="/admin/release-room/<%= r._id %>" method="POST" style="display:inline">
+                      <button type="submit" class="btn btn-warning btn-sm">Giải phóng</button>
+                    </form>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

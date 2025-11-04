@@ -13,17 +13,19 @@ router.post('/login', [
   body('password').notEmpty().trim()
 ], async (req, res, next) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).render('login', { error: 'Invalid input' });
+  if (!errors.isEmpty()) return res.status(400).render('login', { error: 'Dữ liệu không hợp lệ' });
 
   const { username, password } = req.body;
   try {
     const user = await User.findOne({ username });
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(400).render('login', { error: 'Invalid credentials' });
+      return res.status(400).render('login', { error: 'Sai tên đăng nhập hoặc mật khẩu' });
     }
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.cookie('token', token, { httpOnly: true });
-    res.redirect('/user/profile');
+
+    // SỬA: CHUYỂN VỀ TRANG CHỦ, KHÔNG PHẢI HỒ SƠ
+    res.redirect('/');
   } catch (err) {
     next(err);
   }
@@ -35,15 +37,20 @@ router.post('/register', [
   body('email').isEmail().normalizeEmail()
 ], async (req, res, next) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).render('register', { error: 'Invalid input' });
+  if (!errors.isEmpty()) return res.status(400).render('register', { error: 'Dữ liệu không hợp lệ' });
 
   const { username, password, email } = req.body;
   try {
-    const existingUser = await User.findOne({ username });
-    if (existingUser) return res.status(400).render('register', { error: 'Username already exists' });
+    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+    if (existingUser) {
+      return res.status(400).render('register', { error: 'Tên đăng nhập hoặc email đã tồn tại' });
+    }
+
     const user = new User({ username, password, email, role: 'user' });
     await user.save();
-    res.redirect('/auth/login');
+
+    // CHUYỂN QUA TRANG THÔNG BÁO
+    res.render('register-success', { username });
   } catch (err) {
     next(err);
   }

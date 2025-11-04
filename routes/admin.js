@@ -1,46 +1,46 @@
+// routes/admin.js
 const express = require('express');
 const router = express.Router();
 const Room = require('../models/Room');
+const User = require('../models/User');
 const Booking = require('../models/Booking');
-const { body, validationResult } = require('express-validator');
+const Review = require('../models/Review');
+const Discount = require('../models/Discount');
 
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const [rooms, bookings] = await Promise.all([
+    const [rooms, users, bookings, reviews, discounts] = await Promise.all([
       Room.find(),
-      Booking.find().populate('roomId', 'type roomNumber status location price')
+      User.find({ role: 'user' }),
+      Booking.find().populate('roomId userId'),
+      Review.find().populate('roomId userId'),
+      Discount.find().sort({ createdAt: -1 })
     ]);
+
     const revenue = await Booking.aggregate([
-      { $lookup: { from: 'rooms', localField: 'roomId', foreignField: '_id', as: 'room' } },
-      { $unwind: '$room' },
-      { $group: { _id: null, total: { $sum: '$room.price' } } }
+      { $match: { status: 'confirmed' } },
+      { $group: { _id: null, total: { $sum: '$totalPrice' } } }
     ]);
-    const occupancyRate = (bookings.length / rooms.length) * 100 || 0;
+
+    const occupancyRate = rooms.length > 0
+      ? (bookings.filter(b => b.roomId.status === 'booked').length / rooms.length * 100).toFixed(2)
+      : 0;
+
     res.render('admin-dashboard', {
-      rooms,
-      bookings,
+      rooms, users, bookings, reviews, discounts,
       revenue: revenue[0]?.total || 0,
-      occupancyRate: occupancyRate.toFixed(2)
+      occupancyRate
     });
   } catch (err) {
     next(err);
   }
 });
 
-router.post('/create-room', [
-  body('roomNumber').notEmpty().trim().escape(),
-  body('type').notEmpty().trim().escape(),
-  body('price').isInt({ min: 0 }),
-  body('location').notEmpty().trim().escape()
-], async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).render('admin-dashboard', { error: 'Invalid room data' });
-
-  const { roomNumber, type, price, location } = req.body;
+// Tạo phòng
+router.post('/create-room', async (req, res, next) => {
   try {
-    const existingRoom = await Room.findOne({ roomNumber });
-    if (existingRoom) return res.status(400).render('admin-dashboard', { error: 'Room number already exists' });
-    const room = new Room({ roomNumber, type, price, location });
+    const { roomNumber, type, price, location } = req.body;
+    const room = new Room({ roomNumber, type, price: Number(price), location, status: 'available' });
     await room.save();
     res.redirect('/admin/dashboard');
   } catch (err) {
@@ -48,15 +48,32 @@ router.post('/create-room', [
   }
 });
 
+// Giải phóng phòng
 router.post('/release-room/:id', async (req, res, next) => {
+  await Room.findByIdAndUpdate(req.params.id, { status: 'available' });
+  res.redirect('/admin/dashboard');
+});
+
+// Tạo mã giảm giá
+router.post('/discount/create', async (req, res, next) => {
   try {
-    const roomId = req.params.id;
-    await Room.findByIdAndUpdate(roomId, { status: 'available' });
-    await Booking.deleteMany({ roomId, status: 'confirmed' }); // Xóa booking liên quan
+    const { code, discountPercent, expiresAt } = req.body;
+    const discount = new Discount({
+      code: code.toUpperCase(),
+      discountPercent: Number(discountPercent),
+      expiresAt
+    });
+    await discount.save();
     res.redirect('/admin/dashboard');
   } catch (err) {
     next(err);
   }
+});
+
+// Xóa mã
+router.post('/discount/delete/:id', async (req, res, next) => {
+  await Discount.findByIdAndDelete(req.params.id);
+  res.redirect('/admin/dashboard');
 });
 
 module.exports = router;
