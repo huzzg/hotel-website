@@ -1,23 +1,80 @@
+<!-- views/profile.ejs -->
 <%- include('partials/header') %>
-<style>
-  .profile-container { max-width: 600px; margin: 50px auto; }
-  .profile-form { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); animation: slideUp 1s ease-out; }
-  @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-</style>
-<div class="profile-container">
-  <h2 class="text-center mb-4">Hồ Sơ Của Tôi</h2>
-  <div class="profile-form">
-    <form action="/user/profile" method="POST">
-      <div class="mb-3">
-        <label for="name" class="form-label">Tên</label>
-        <input type="text" name="profile[name]" id="name" class="form-control form-control-lg" value="<%= user.profile ? user.profile.name : '' %>" required>
+<div class="container mt-5 pt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white text-center py-3">
+          <h4 class="mb-0">HỒ SƠ CỦA TÔI</h4>
+        </div>
+        <div class="card-body text-center p-4">
+          <!-- AVATAR + NÚT CHỌN ẢNH -->
+          <div class="position-relative d-inline-block mb-4">
+            <img 
+              id="avatarPreview"
+              src="<%= user.profile.avatar || '/images/default-avatar.jpg' %>" 
+              alt="Avatar" 
+              class="rounded-circle img-thumbnail"
+              width="140" 
+              height="140"
+              style="object-fit: cover; border: 4px solid #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1); cursor: pointer;"
+            >
+            <!-- Nút chọn ảnh (ẩn input, hiện nút đẹp) -->
+            <label for="avatarInput" class="btn btn-outline-primary btn-sm position-absolute bottom-0 end-0 translate-middle-x" 
+                   style="border-radius: 50%; width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13zm13 1a.5.5 0 0 1 .5.5v6l-3.775-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12v.54L1 12.5V3.5a.5.5 0 0 1 .5-.5h13z"/>
+              </svg>
+            </label>
+            <input type="file" name="avatar" id="avatarInput" class="d-none" accept="image/*">
+          </div>
+
+          <!-- Form -->
+          <form id="profileForm" action="/user/profile" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label class="form-label fw-bold text-start d-block">Họ và tên</label>
+              <input type="text" name="name" class="form-control" value="<%= user.profile.name %>" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold text-start d-block">Số điện thoại</label>
+              <input type="tel" name="phone" class="form-control" value="<%= user.profile.phone %>" required>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-lg w-100">
+              Cập Nhật Hồ Sơ
+            </button>
+          </form>
+
+          <!-- Thông báo -->
+          <% if (success) { %>
+            <div class="alert alert-success mt-4">Cập nhật hồ sơ thành công!</div>
+          <% } %>
+        </div>
       </div>
-      <div class="mb-3">
-        <label for="phone" class="form-label">Số Điện Thoại</label>
-        <input type="tel" name="profile[phone]" id="phone" class="form-control form-control-lg" value="<%= user.profile ? user.profile.phone : '' %>" required>
-      </div>
-      <button type="submit" class="btn btn-hotel w-100">Cập Nhật</button>
-    </form>
+    </div>
   </div>
 </div>
+
+<!-- JS: Xem trước ảnh khi chọn -->
+<script>
+  const avatarInput = document.getElementById('avatarInput');
+  const avatarPreview = document.getElementById('avatarPreview');
+
+  avatarInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        avatarPreview.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Bấm vào ảnh cũng mở chọn file
+  avatarPreview.addEventListener('click', () => avatarInput.click());
+</script>
+
 <%- include('partials/footer') %>

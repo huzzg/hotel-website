@@ -30,8 +30,15 @@ app.use((req, res, next) => {
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      res.locals.user = { id: decoded.id, role: decoded.role };
-    } catch (err) { }
+      res.locals.user = {
+        id: decoded.id,
+        role: decoded.role,
+        username: decoded.username,
+        profile: decoded.profile || { name: '', phone: '', avatar: '/images/default-avatar.jpg' }
+      };
+    } catch (err) {
+      console.error('JWT Error:', err);
+    }
   }
   next();
 });
