@@ -14,3 +14,26 @@ body {
 .container {
   padding-top: 30px; /* Đảm bảo container có khoảng cách với đầu trang */
 }
+
+/* ====== Homepage polish ====== */
+.home-hero{
+  background: radial-gradient(1200px 600px at -10% 10%, #e0f2fe 0%, transparent 50%),
+              radial-gradient(1000px 500px at 110% -10%, #e6f7ff 0%, transparent 55%),
+              #f6f9ff;
+}
+.hero-blob{
+  position:absolute; right:-120px; bottom:-120px; width:380px; height:380px;
+  background: linear-gradient(145deg,#22d3ee, #0ea5e9);
+  opacity:.15; filter: blur(40px); border-radius: 50%;
+}
+.hero-thumb img{ transform: scale(1.02); }
+.home-search .form-control, .home-search .form-select{
+  border-radius: 14px;
+}
+.room-card{ transition: transform .2s ease, box-shadow .2s ease; }
+.room-card:hover{ transform: translateY(-4px); box-shadow: 0 12px 28px rgba(2,132,199,.16); }
+
+/* CTA */
+.cta{ 
+  background: linear-gradient(135deg,#0ea5e9,#2563eb);
+}

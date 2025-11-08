@@ -1,64 +1,95 @@
+// routes/auth.js
 const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
+const router = express.Router();
 
-router.get('/login', (req, res) => res.render('login'));
-router.get('/register', (req, res) => res.render('register'));
+const User = require('../models/User');
 
-router.post('/login', [
-  body('username').notEmpty().trim().escape(),
-  body('password').notEmpty().trim()
-], async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).render('login', { error: 'Dữ liệu không hợp lệ' });
-
-  const { username, password } = req.body;
+// GET /auth/login
+router.get('/login', (req, res) => {
   try {
-    const user = await User.findOne({ username });
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(400).render('login', { error: 'Sai tên đăng nhập hoặc mật khẩu' });
+    const token = req.cookies?.token;
+    if (token) {
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      if (payload.role === 'admin') return res.redirect('/admin/dashboard');
+      return res.redirect('/');
     }
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.cookie('token', token, { httpOnly: true });
+  } catch {}
+  return res.render('login', { error: null, email: '' });
+});
 
-    // SỬA: CHUYỂN VỀ TRANG CHỦ, KHÔNG PHẢI HỒ SƠ
-    res.redirect('/');
+// POST /auth/login
+router.post('/login', async (req, res, next) => {
+  try {
+    const { email, password } = req.body || {};
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).render('login', { error: 'Email không tồn tại', email });
+    }
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) {
+      return res.status(401).render('login', { error: 'Mật khẩu không đúng', email });
+    }
+
+    const payload = {
+      id: user._id,
+      email: user.email,
+      name: user.profile?.name || user.username || '',
+      username: user.username || '',
+      role: user.role || 'user',
+      avatar: user.avatar || ''
+    };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    if ((user.role || 'user') === 'admin') {
+      return res.redirect('/admin/dashboard');
+    }
+    return res.redirect('/');
   } catch (err) {
     next(err);
   }
 });
 
-router.post('/register', [
-  body('username').notEmpty().trim().escape(),
-  body('password').isLength({ min: 6 }),
-  body('email').isEmail().normalizeEmail()
-], async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).render('register', { error: 'Dữ liệu không hợp lệ' });
+// GET /auth/register
+router.get('/register', (req, res) => {
+  res.render('register', { error: null, formData: {} });
+});
 
-  const { username, password, email } = req.body;
+// POST /auth/register
+router.post('/register', async (req, res, next) => {
   try {
-    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
-    if (existingUser) {
-      return res.status(400).render('register', { error: 'Tên đăng nhập hoặc email đã tồn tại' });
+    const { name, phone, email, password } = req.body || {};
+    const existed = await User.findOne({ email });
+    if (existed) {
+      return res.status(400).render('register', { error: 'Email đã tồn tại', formData: req.body });
     }
-
-    const user = new User({ username, password, email, role: 'user' });
-    await user.save();
-
-    // CHUYỂN QUA TRANG THÔNG BÁO
-    res.render('register-success', { username });
+    const hash = await bcrypt.hash(password, 10);
+    await User.create({
+      username: email.split('@')[0],
+      email,
+      password: hash,
+      role: 'user',
+      profile: { name, phone }
+    });
+    return res.redirect('/auth/login');
   } catch (err) {
     next(err);
   }
 });
 
+// GET /auth/logout
 router.get('/logout', (req, res) => {
   res.clearCookie('token');
-  res.redirect('/auth/login');
+  return res.redirect('/');
 });
 
 module.exports = router;

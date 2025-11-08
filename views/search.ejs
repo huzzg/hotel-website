@@ -1,0 +1,49 @@
+<%- include('partials/header') %>
+
+<div class="container py-4">
+  <h1 class="h4 fw-bold text-info">Kết quả tìm kiếm</h1>
+
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-danger mt-3"><%= error %></div>
+  <% } %>
+
+  <div class="small text-muted mt-2">
+    <span>Khoảng: <%= query?.checkIn || '-' %> → <%= query?.checkOut || '-' %></span>
+    <% if(query?.q){ %> · <span>Từ khóa: "<%= query.q %>"</span><% } %>
+    <% if(query?.type){ %> · <span>Loại: <%= query.type %></span><% } %>
+    <% if(query?.location){ %> · <span>Địa điểm: <%= query.location %></span><% } %>
+    <% if(query?.minPrice){ %> · <span>Giá từ: <%= Number(query.minPrice).toLocaleString() %></span><% } %>
+    <% if(query?.maxPrice){ %> · <span>Giá đến: <%= Number(query.maxPrice).toLocaleString() %></span><% } %>
+  </div>
+
+  <div class="row g-4 mt-1">
+    <% if (!rooms || rooms.length === 0) { %>
+      <div class="col-12 text-muted">Không tìm thấy phòng phù hợp với điều kiện.</div>
+    <% } %>
+
+    <% (rooms || []).forEach(r => { %>
+      <div class="col-md-4">
+        <a href="/user/room/<%= r._id %>" class="text-decoration-none text-dark">
+          <div class="card h-100 border-0 shadow-sm rounded-4">
+            <img
+              src="<%= r.image && r.image.startsWith('/images/') ? r.image : (r.image ? '/images/' + r.image : '/images/room1.jpeg') %>"
+              onerror="this.src='/images/room1.jpeg'"
+              class="card-img-top rounded-top-4"
+              style="height:220px;object-fit:cover;"
+              alt="<%= r.name || r.type || 'Room' %>">
+            <div class="card-body">
+              <h3 class="h6 fw-bold mb-1"><%= r.name || (r.type + ' - ' + r.roomNumber) %></h3>
+              <p class="small text-muted mb-2"><%= r.location || '—' %></p>
+              <div class="d-flex align-items-center justify-content-between">
+                <span class="fw-bold text-info"><%= (r.price||0).toLocaleString() %>₫/đêm</span>
+                <span class="badge bg-success-subtle text-success"><%= r.status %></span>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
