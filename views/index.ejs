@@ -10,12 +10,33 @@
   .room-card{ transition:.2s transform, .2s box-shadow; }
   .room-card:hover{ transform: translateY(-4px); box-shadow: 0 12px 28px rgba(2,132,199,.16); }
 
-  /* City switcher */
   .city-img{ height: 360px; object-fit: cover; border-radius: 16px; }
   .city-chip{ border-radius: 999px; padding: 6px 12px; border:1px solid #bde4ff; background:#e6f7ff; color:#0ea5e9; cursor:pointer; }
   .city-chip.active{ background:#0ea5e9; color:#fff; border-color:#0ea5e9; }
+
+  /* Cards loại phòng */
+  .rtype-card{
+    border:0; border-radius:18px;
+    box-shadow:0 10px 24px rgba(2,132,199,.10);
+    transition:transform .18s ease, box-shadow .18s ease;
+    background:#fff;
+  }
+  .rtype-card:hover{ transform:translateY(-4px); box-shadow:0 14px 34px rgba(2,132,199,.16); }
+  .rtype-badge{
+    display:inline-block; font-size:.8rem; font-weight:600;
+    padding:.35rem .6rem; border-radius:999px; background:#e6f7ff; color:#0ea5e9;
+    border:1px solid #bde4ff;
+  }
+  .rtype-icon{
+    width:48px; height:48px; border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#e0f2fe,#dbeafe);
+    color:#0ea5e9; font-size:22px; font-weight:700;
+    box-shadow: inset 0 0 0 1px rgba(14,165,233,.25);
+  }
 </style>
 
+<!-- HERO / SEARCH SECTION -->
 <section class="home-hero overflow-hidden">
   <div class="container py-5">
     <div class="row align-items-center g-4">
@@ -33,10 +54,19 @@
             <label class="form-label small text-muted">Từ khóa (tên/mã/loại/địa điểm)</label>
             <input class="form-control" type="text" name="q" placeholder="Deluxe, D101, Hà Nội...">
           </div>
+
+          <!-- DROPDOWN LOẠI PHÒNG -->
           <div class="col-6 col-md-3">
             <label class="form-label small text-muted">Loại phòng</label>
-            <input class="form-control" type="text" name="type" placeholder="Deluxe">
+            <select class="form-select" name="type">
+              <option value="">Tất cả loại phòng</option>
+              <option value="Standard">Standard</option>
+              <option value="Superior">Superior</option>
+              <option value="Deluxe" selected>Deluxe</option>
+              <option value="Suite">Suite</option>
+            </select>
           </div>
+
           <div class="col-6 col-md-3">
             <label class="form-label small text-muted">Địa điểm</label>
             <input class="form-control" type="text" name="location" placeholder="Hà Nội">
@@ -82,7 +112,92 @@
   </div>
 </section>
 
-<!-- ====== CITY SWITCHER ====== -->
+<!-- ====== GIỚI THIỆU CÁC LOẠI PHÒNG ====== -->
+<section class="py-5" style="background:#f8fbff;">
+  <div class="container">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="h4 fw-bold text-primary mb-0">Các loại phòng phổ biến</h2>
+      <span class="text-muted small">Nguồn: Vietnam Booking</span>
+    </div>
+
+    <div class="row g-4">
+      <!-- Standard -->
+      <div class="col-sm-6 col-lg-3">
+        <div class="card rtype-card h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="rtype-icon">S</div>
+              <div>
+                <div class="fw-bold mb-0">Standard</div>
+                <span class="rtype-badge">STD</span>
+              </div>
+            </div>
+            <p class="small text-muted mb-0">
+              Hạng <b>cơ bản</b>, diện tích vừa phải, tiện nghi tiêu chuẩn – phù hợp ngân sách tiết kiệm. 
+            </p>
+          </div>
+        </div>
+      </div>
+      <!-- Superior -->
+      <div class="col-sm-6 col-lg-3">
+        <div class="card rtype-card h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="rtype-icon">SP</div>
+              <div>
+                <div class="fw-bold mb-0">Superior</div>
+                <span class="rtype-badge">SUP</span>
+              </div>
+            </div>
+            <p class="small text-muted mb-0">
+              <b>Nâng cấp</b> so với Standard: phòng rộng hơn, trang trí đẹp, thường ở <b>tầng giữa</b>, giá vẫn “mềm”. 
+            </p>
+          </div>
+        </div>
+      </div>
+      <!-- Deluxe -->
+      <div class="col-sm-6 col-lg-3">
+        <div class="card rtype-card h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="rtype-icon">DX</div>
+              <div>
+                <div class="fw-bold mb-0">Deluxe</div>
+                <span class="rtype-badge">DLX</span>
+              </div>
+            </div>
+            <p class="small text-muted mb-0">
+              Ở <b>tầng cao</b>, <b>view đẹp</b>, tiện nghi hiện đại & cao cấp hơn – mức giá cao hơn SUP. 
+            </p>
+          </div>
+        </div>
+      </div>
+      <!-- Suite -->
+      <div class="col-sm-6 col-lg-3">
+        <div class="card rtype-card h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="rtype-icon">ST</div>
+              <div>
+                <div class="fw-bold mb-0">Suite</div>
+                <span class="rtype-badge">SUT</span>
+              </div>
+            </div>
+            <p class="small text-muted mb-0">
+              Hạng <b>sang</b>, diện tích lớn, thường có <b>phòng khách riêng</b>, trang bị & dịch vụ cao cấp. 
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3 small text-muted">
+      *Mô tả tóm tắt dựa trên phân loại theo chất lượng phòng: Standard → Superior → Deluxe → Suite.
+    </div>
+  </div>
+</section>
+
+<!-- ====== KHÁM PHÁ THEO ĐỊA ĐIỂM ====== -->
 <section class="container py-4">
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h2 class="h4 fw-bold text-primary mb-0">Khám phá theo địa điểm: <span id="cityTitle">Hà Nội</span></h2>
@@ -97,7 +212,7 @@
   <img id="cityImg" class="w-100 city-img shadow-sm" src="/images/001.jpg" alt="City">
 </section>
 
-<!-- ====== FEATURED ROOMS ====== -->
+<!-- ====== PHÒNG NỔI BẬT ====== -->
 <section class="bg-white py-5">
   <div class="container">
     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -160,7 +275,6 @@
 <%- include('partials/footer') %>
 
 <script>
-  // Giới hạn ngày
   (function(){
     const today = new Date().toISOString().split('T')[0];
     const inEl = document.getElementById('checkIn');
@@ -170,67 +284,12 @@
     if(inEl && outEl){ inEl.addEventListener('change', ()=> { outEl.min = inEl.value || today; }); }
   })();
 
-  // Render card phòng
-  function renderRoomCard(r){
-    const img = r.image || '/images/room1.jpeg';
-    const name = r.name || (r.type ? (r.type + ' - ' + (r.roomNumber || '')) : 'Room');
-    const statusBadge = (r.status === 'available') ? 'badge bg-success-subtle text-success' : 'badge bg-secondary';
-    return `
-      <div class="col-sm-6 col-lg-4">
-        <a href="/user/room/${r._id}" class="text-decoration-none text-dark">
-          <div class="card h-100 border-0 shadow-sm rounded-4 room-card">
-            <img src="${img}" class="card-img-top rounded-top-4" style="height:220px;object-fit:cover"
-                 alt="${name}" onerror="this.src='/images/room1.jpeg'">
-            <div class="card-body">
-              <div class="d-flex align-items-center justify-content-between">
-                <h3 class="h6 fw-bold mb-0">${name}</h3>
-                <span class="${statusBadge}">${r.status || 'available'}</span>
-              </div>
-              <p class="small text-muted mb-2">${r.location || '—'}</p>
-              <div class="d-flex align-items-center justify-content-between">
-                <span class="fw-bold text-info">${(r.price||0).toLocaleString()}₫/đêm</span>
-                <span class="small text-muted">${r.type || ''}</span>
-              </div>
-            </div>
-          </div>
-        </a>
-      </div>`;
-  }
-
-  async function switchCity(city, imgUrl){
-    document.getElementById('cityTitle').textContent = city;
-    const hero = document.getElementById('heroImg');
-    const cityImg = document.getElementById('cityImg');
-    if (hero) hero.src = imgUrl;
-    if (cityImg) cityImg.src = imgUrl;
-
-    try {
-      const res = await fetch(`/api/rooms?location=${encodeURIComponent(city)}&limit=9`, { cache: 'no-store' });
-      const data = await res.json();
-      const grid = document.getElementById('featuredGrid');
-      const countEl = document.getElementById('roomCount');
-
-      if (data && data.ok) {
-        const rooms = data.rooms || [];
-        countEl.textContent = rooms.length.toString();
-        grid.innerHTML = rooms.length
-          ? rooms.map(renderRoomCard).join('')
-          : `<div class="col-12 text-muted">Không tìm thấy phòng tại ${city}.</div>`;
-      } else {
-        grid.innerHTML = `<div class="col-12 text-muted">Không tải được phòng. Vui lòng thử lại.</div>`;
-      }
-    } catch (e) { console.error(e); }
-  }
-
-  // Gắn sự kiện click cho các nút city
   document.querySelectorAll('.js-city-btn').forEach(btn => {
     btn.addEventListener('click', function(){
       document.querySelectorAll('.js-city-btn').forEach(x => x.classList.remove('active'));
       this.classList.add('active');
-      switchCity(this.dataset.city, this.dataset.img);
+      document.getElementById('cityTitle').textContent = this.dataset.city;
+      document.getElementById('cityImg').src = this.dataset.img;
     });
   });
-
-  // Preload ảnh để chuyển mượt
-  ['001.jpg','002.jpg','005.jpg','006.jpg'].forEach(name => { const img = new Image(); img.src = `/images/${name}`; });
 </script>

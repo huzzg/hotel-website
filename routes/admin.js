@@ -1,79 +1,124 @@
 // routes/admin.js
 const express = require('express');
 const router = express.Router();
+const requireAdmin = require('../middleware/requireAdmin'); // bạn đã có file này
 const Room = require('../models/Room');
-const User = require('../models/User');
-const Booking = require('../models/Booking');
-const Review = require('../models/Review');
-const Discount = require('../models/Discount');
 
-router.get('/dashboard', async (req, res, next) => {
+// nạp mềm User/Booking nếu có
+let User = null, Booking = null;
+try { User = require('../models/User'); } catch (_) {}
+try { Booking = require('../models/Booking'); } catch (_) {}
+
+/* ========== PAGES ========== */
+
+// Dashboard
+router.get(['/', '/dashboard'], requireAdmin, async (req, res, next) => {
   try {
-    const [rooms, users, bookings, reviews, discounts] = await Promise.all([
-      Room.find(),
-      User.find({ role: 'user' }),
-      Booking.find().populate('roomId userId'),
-      Review.find().populate('roomId userId'),
-      Discount.find().sort({ createdAt: -1 })
+    const [totalRooms, availableRooms, totalUsers, totalBookings] = await Promise.all([
+      Room.countDocuments({}),
+      Room.countDocuments({ status: 'available' }),
+      User ? User.countDocuments({ role: { $ne: 'admin' } }) : Promise.resolve(0),
+      Booking ? Booking.countDocuments({}) : Promise.resolve(0),
     ]);
 
-    const revenue = await Booking.aggregate([
-      { $match: { status: 'confirmed' } },
-      { $group: { _id: null, total: { $sum: '$totalPrice' } } }
-    ]);
-
-    const occupancyRate = rooms.length > 0
-      ? (bookings.filter(b => b.roomId.status === 'booked').length / rooms.length * 100).toFixed(2)
-      : 0;
+    // doanh thu 7 ngày (nếu có Booking)
+    let revenueSeries = [];
+    if (Booking) {
+      const since = new Date(); since.setDate(since.getDate() - 6); since.setHours(0,0,0,0);
+      const agg = await Booking.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, total: { $sum: "$totalPrice" } } },
+        { $sort: { _id: 1 } }
+      ]);
+      for (let i=6;i>=0;i--){
+        const d = new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
+        const key = d.toISOString().slice(0,10);
+        const hit = agg.find(a => a._id === key);
+        revenueSeries.push({ date: key.slice(5), total: hit ? hit.total : 0 });
+      }
+    }
 
     res.render('admin-dashboard', {
-      rooms, users, bookings, reviews, discounts,
-      revenue: revenue[0]?.total || 0,
-      occupancyRate
+      title: 'Bảng điều khiển',
+      stats: { totalRooms, availableRooms, totalUsers, totalBookings },
+      revenueSeries
     });
-  } catch (err) {
-    next(err);
-  }
+  } catch (e) { next(e); }
 });
 
-// Tạo phòng
-router.post('/create-room', async (req, res, next) => {
+// Trang quản lý phòng
+router.get('/rooms', requireAdmin, async (req, res, next) => {
   try {
-    const { roomNumber, type, price, location } = req.body;
-    const room = new Room({ roomNumber, type, price: Number(price), location, status: 'available' });
-    await room.save();
-    res.redirect('/admin/dashboard');
-  } catch (err) {
-    next(err);
-  }
+    const rooms = await Room.find({}).sort({ createdAt: -1 }).lean();
+    res.render('admin-rooms', { title: 'Quản lý phòng', rooms });
+  } catch (e) { next(e); }
 });
 
-// Giải phóng phòng
-router.post('/release-room/:id', async (req, res, next) => {
-  await Room.findByIdAndUpdate(req.params.id, { status: 'available' });
-  res.redirect('/admin/dashboard');
-});
-
-// Tạo mã giảm giá
-router.post('/discount/create', async (req, res, next) => {
+// Trang khách hàng
+router.get('/users', requireAdmin, async (req, res, next) => {
   try {
-    const { code, discountPercent, expiresAt } = req.body;
-    const discount = new Discount({
-      code: code.toUpperCase(),
-      discountPercent: Number(discountPercent),
-      expiresAt
-    });
-    await discount.save();
-    res.redirect('/admin/dashboard');
-  } catch (err) {
-    next(err);
-  }
+    const users = User
+      ? await User.find({ role: { $ne: 'admin' } }).sort({ createdAt: -1 }).lean()
+      : [];
+    res.render('admin-users', { title: 'Khách hàng', users, note: User ? null : 'Chưa có model User.' });
+  } catch (e) { next(e); }
 });
 
-// Xóa mã
-router.post('/discount/delete/:id', async (req, res, next) => {
-  await Discount.findByIdAndDelete(req.params.id);
-  res.redirect('/admin/dashboard');
+/* ========== API ========== */
+
+// API rooms (list + filter)
+router.get('/api/rooms', requireAdmin, async (req, res) => {
+  const { type, status, q } = req.query;
+  const filter = {};
+  if (type) filter.type = new RegExp(type, 'i');
+  if (status) filter.status = status;
+  if (q) filter.$or = [
+    { name: new RegExp(q, 'i') },
+    { roomNumber: new RegExp(q, 'i') },
+    { type: new RegExp(q, 'i') },
+    { location: new RegExp(q, 'i') },
+  ];
+  const rooms = await Room.find(filter).sort({ createdAt: -1 }).lean();
+  res.json({ ok: true, rooms });
+});
+
+// create room
+router.post('/api/rooms', requireAdmin, async (req, res) => {
+  try {
+    const room = await Room.create(req.body);
+    res.json({ ok: true, room });
+  } catch (e) { res.status(400).json({ ok: false, message: e.message }); }
+});
+
+// update room
+router.put('/api/rooms/:id', requireAdmin, async (req, res) => {
+  try {
+    const room = await Room.findByIdAndUpdate(req.params.id, req.body, { new: true }).lean();
+    res.json({ ok: true, room });
+  } catch (e) { res.status(400).json({ ok: false, message: e.message }); }
+});
+
+// delete room
+router.delete('/api/rooms/:id', requireAdmin, async (req, res) => {
+  try {
+    await Room.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ ok: false, message: e.message }); }
+});
+
+// API users (nếu có model User)
+router.get('/api/users', requireAdmin, async (req, res) => {
+  if (!User) return res.json({ ok: true, users: [] });
+  const { q } = req.query;
+  const filter = q ? { $or: [{ username: new RegExp(q,'i') }, { email: new RegExp(q,'i') }] } : {};
+  const users = await User.find(filter).sort({ createdAt: -1 }).lean();
+  res.json({ ok: true, users });
+});
+
+router.delete('/api/users/:id', requireAdmin, async (req, res) => {
+  if (!User) return res.status(400).json({ ok:false, message:'No User model' });
+  await User.findByIdAndDelete(req.params.id);
+  res.json({ ok: true });
 });
 
 module.exports = router;

@@ -1,171 +1,148 @@
 // routes/user.js
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
+
 const User = require('../models/User');
-const Room = require('../models/Room');
-const Booking = require('../models/Booking');
-const Review = require('../models/Review');
-const Discount = require('../models/Discount');
 
-router.get('/profile', async (req, res, next) => {
+// Thử nạp Booking (nếu dự án chưa có model này thì trang lịch sử sẽ báo "chưa có dữ liệu")
+let Booking = null;
+try { Booking = require('../models/Booking'); } catch (_) { Booking = null; }
+
+// ===== Auth middleware =====
+function requireAuth(req, res, next) {
   try {
-    const user = await User.findById(req.user.id).select('username email profile role');
-    res.render('profile', { user: user || { role: 'guest', username: 'Unknown' } });
-  } catch (err) {
-    next(err);
+    const token = req.cookies?.token;
+    if (!token) return res.redirect('/auth/login');
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = payload;
+    next();
+  } catch {
+    return res.redirect('/auth/login');
   }
+}
+
+/* ================== HỒ SƠ ================== */
+// GET /profile  (và /user/profile nếu bạn mount ở '/')
+router.get(['/profile', '/user/profile'], requireAuth, async (req, res, next) => {
+  try {
+    const me = await User.findById(req.user.id).lean();
+    if (!me) return res.redirect('/auth/login');
+
+    const data = {
+      name: me.profile?.name || '',
+      email: me.email || '',
+      phone: me.phone || me.profile?.phone || '',
+      username: me.username || ''
+    };
+    res.render('profile', { title: 'Hồ sơ cá nhân', error: null, success: null, data });
+  } catch (err) { next(err); }
 });
 
-router.post('/profile', async (req, res, next) => {
+// POST /profile
+router.post(['/profile', '/user/profile'], requireAuth, async (req, res, next) => {
   try {
-    const { name, phone } = req.body.profile;
-    await User.findByIdAndUpdate(req.user.id, { 'profile.name': name, 'profile.phone': phone });
-    res.redirect('/user/profile');
-  } catch (err) {
-    next(err);
-  }
-});
+    const userId = req.user.id;
+    const name  = String(req.body.name  || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const phone = String(req.body.phone || '').trim();
 
-router.get('/rooms', async (req, res, next) => {
-  try {
-    const rooms = await Room.find();
-    res.render('booking', { rooms });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get('/room-detail/:id', async (req, res, next) => {
-  try {
-    const room = await Room.findById(req.params.id);
-    if (!room) return res.status(404).render('error', { message: 'Phòng không tồn tại' });
-    res.render('room-detail', { room });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get('/search', async (req, res, next) => {
-  const { location, type, checkIn, checkOut } = req.query;
-  try {
-    let query = { status: 'available' };
-    if (location) query.location = { $regex: location, $options: 'i' };
-    if (type) query.type = type;
-    const rooms = await Room.find(query);
-    res.render('index', { rooms });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/book', async (req, res, next) => {
-  try {
-    const { roomId, checkIn, checkOut, discountCode } = req.body;
-    const room = await Room.findById(roomId);
-    if (!room || room.status !== 'available') {
-      return res.status(400).send('Phòng không khả dụng');
-    }
-
-    const nights = (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24);
-    let totalPrice = room.price * nights;
-    let discountApplied = 0;
-
-    if (discountCode) {
-      const discount = await Discount.findOne({
-        code: discountCode.toUpperCase(),
-        isActive: true,
-        expiresAt: { $gt: new Date() }
+    if (!email) {
+      return res.render('profile', {
+        title: 'Hồ sơ cá nhân',
+        error: 'Email không được để trống.',
+        success: null,
+        data: { name, email, phone, username: req.user.username || '' }
       });
-      if (discount && !discount.usedBy.includes(req.user.id)) {
-        discountApplied = totalPrice * (discount.discountPercent / 100);
-        totalPrice -= discountApplied;
-      }
     }
 
-    // TẠO BOOKING TẠM (chưa xác nhận)
-    const booking = new Booking({
-      userId: req.user.id,
-      roomId,
-      checkIn: new Date(checkIn),
-      checkOut: new Date(checkOut),
-      totalPrice,
-      discountCode: discountCode || null,
-      discountApplied,
-      status: 'pending'
+    const existed = await User.findOne({ email, _id: { $ne: userId } }).lean();
+    if (existed) {
+      return res.render('profile', {
+        title: 'Hồ sơ cá nhân',
+        error: 'Email này đã được sử dụng bởi tài khoản khác.',
+        success: null,
+        data: { name, email, phone, username: req.user.username || '' }
+      });
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: { email, phone, profile: { name, phone } } },
+      { new: true }
+    ).lean();
+
+    // cập nhật lại JWT để header hiển thị tên mới luôn
+    const payload = {
+      id: updated._id,
+      email: updated.email,
+      name: updated.profile?.name || updated.username || '',
+      username: updated.username || '',
+      role: updated.role || 'user',
+      avatar: updated.avatar || '',
+      phone: updated.phone || updated.profile?.phone || ''
+    };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.cookie('token', token, {
+      httpOnly: true, sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
-    await booking.save();
 
-    // KHÔNG ĐÁNH DẤU PHÒNG BOOKED NGAY
-    // await Room.findByIdAndUpdate(roomId, { status: 'booked' });
-
-    // CHUYỂN QUA TRANG XÁC NHẬN
-    res.redirect(`/user/confirm/${booking._id}`);
-  } catch (err) {
-    next(err);
-  }
+    res.render('profile', {
+      title: 'Hồ sơ cá nhân',
+      error: null,
+      success: 'Cập nhật thông tin thành công!',
+      data: {
+        name: updated.profile?.name || '',
+        email: updated.email || '',
+        phone: updated.phone || '',
+        username: updated.username || ''
+      }
+    });
+  } catch (err) { next(err); }
 });
 
-// TRANG XÁC NHẬN
-router.get('/confirm/:id', async (req, res, next) => {
+/* ============== LỊCH SỬ ĐẶT PHÒNG ============== */
+// GET /history  (và /user/history)
+router.get(['/history', '/user/history'], requireAuth, async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id)
-      .populate('roomId', 'roomNumber type location price');
-    if (!booking || booking.userId.toString() !== req.user.id) {
-      return res.status(404).render('error', { message: 'Không tìm thấy đặt phòng' });
-    }
-    res.render('booking-confirm', { booking });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// THANH TOÁN
-router.post('/pay/:id', async (req, res, next) => {
-  try {
-    const booking = await Booking.findById(req.params.id);
-    if (!booking || booking.status !== 'pending') {
-      return res.status(400).send('Đặt phòng không hợp lệ');
+    if (!Booking) {
+      // Nếu chưa có model Booking, hiển thị trang trống có hướng dẫn
+      return res.render('history', {
+        title: 'Lịch sử đặt phòng',
+        bookings: [],
+        note: 'Chưa tích hợp model Booking nên chưa có dữ liệu hiển thị.'
+      });
     }
 
-    await Booking.findByIdAndUpdate(req.params.id, { status: 'confirmed' });
-    await Room.findByIdAndUpdate(booking.roomId, { status: 'booked' });
+    // hỗ trợ nhiều tên field ngày để tương thích DB cũ
+    const bookings = await Booking
+      .find({ user: req.user.id })
+      .populate('room')
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.redirect('/user/history?success=1');
-  } catch (err) {
-    next(err);
-  }
-});
+    // chuẩn hoá dữ liệu để view dễ render
+    const mapped = bookings.map(b => ({
+      _id: b._id,
+      code: b.code || b.bookingCode || ('BK' + String(b._id).slice(-6).toUpperCase()),
+      roomName: b.room?.name || (b.room?.type ? `${b.room.type} - ${b.room?.roomNumber || ''}` : 'Phòng'),
+      location: b.room?.location || '',
+      price: b.room?.price || 0,
+      totalPrice: b.totalPrice || b.amount || 0,
+      status: b.status || 'pending',
+      createdAt: b.createdAt,
+      checkIn:  b.checkIn  || b.startDate || b.fromDate || b.from,
+      checkOut: b.checkOut || b.endDate   || b.toDate   || b.to,
+    }));
 
-router.get('/history', async (req, res, next) => {
-  try {
-    const bookings = await Booking.find({ userId: req.user.id })
-      .populate('roomId', 'type roomNumber location price')
-      .sort({ createdAt: -1 });
-    res.render('history', { bookings });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get('/review', async (req, res, next) => {
-  try {
-    const rooms = await Room.find();
-    res.render('review', { rooms });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/review', async (req, res, next) => {
-  try {
-    const { roomId, rating, comment } = req.body;
-    if (rating < 1 || rating > 5) return res.status(400).send('Điểm phải từ 1-5');
-    const review = new Review({ userId: req.user.id, roomId, rating, comment });
-    await review.save();
-    res.redirect('/user/history');
-  } catch (err) {
-    next(err);
-  }
+    res.render('history', {
+      title: 'Lịch sử đặt phòng',
+      bookings: mapped,
+      note: null
+    });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

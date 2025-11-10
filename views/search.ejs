@@ -1,49 +1,106 @@
 <%- include('partials/header') %>
 
-<div class="container py-4">
-  <h1 class="h4 fw-bold text-info">Kết quả tìm kiếm</h1>
+<section class="py-4" style="background:#f6f9ff;">
+  <div class="container">
+    <h1 class="h3 fw-bold text-primary mb-3">Tìm kiếm phòng</h1>
 
-  <% if (typeof error !== 'undefined' && error) { %>
-    <div class="alert alert-danger mt-3"><%= error %></div>
-  <% } %>
-
-  <div class="small text-muted mt-2">
-    <span>Khoảng: <%= query?.checkIn || '-' %> → <%= query?.checkOut || '-' %></span>
-    <% if(query?.q){ %> · <span>Từ khóa: "<%= query.q %>"</span><% } %>
-    <% if(query?.type){ %> · <span>Loại: <%= query.type %></span><% } %>
-    <% if(query?.location){ %> · <span>Địa điểm: <%= query.location %></span><% } %>
-    <% if(query?.minPrice){ %> · <span>Giá từ: <%= Number(query.minPrice).toLocaleString() %></span><% } %>
-    <% if(query?.maxPrice){ %> · <span>Giá đến: <%= Number(query.maxPrice).toLocaleString() %></span><% } %>
+    <form action="/search" method="get" class="row gy-2 gx-2 bg-white shadow-sm rounded-4 p-3 mb-4">
+  <div class="col-12 col-lg-4">
+    <label class="form-label small text-muted">Từ khóa (tên/mã/loại/địa điểm)</label>
+    <input class="form-control" type="text" name="q" value="<%= query.q || '' %>" placeholder="Deluxe, D101, Hà Nội...">
   </div>
 
-  <div class="row g-4 mt-1">
-    <% if (!rooms || rooms.length === 0) { %>
-      <div class="col-12 text-muted">Không tìm thấy phòng phù hợp với điều kiện.</div>
-    <% } %>
+  <!-- LOẠI PHÒNG: dropdown 4 lựa chọn, tự giữ trạng thái đã chọn -->
+  <div class="col-6 col-lg-2">
+    <label class="form-label small text-muted">Loại phòng</label>
+    <select class="form-select" name="type">
+      <option value="" <%= !query.type ? 'selected' : '' %> >Tất cả loại phòng</option>
+      <option value="Standard" <%= query.type==='Standard' ? 'selected' : '' %> >Standard</option>
+      <option value="Superior" <%= query.type==='Superior' ? 'selected' : '' %> >Superior</option>
+      <option value="Deluxe"   <%= query.type==='Deluxe'   ? 'selected' : '' %> >Deluxe</option>
+      <option value="Suite"    <%= query.type==='Suite'    ? 'selected' : '' %> >Suite</option>
+    </select>
+  </div>
 
-    <% (rooms || []).forEach(r => { %>
-      <div class="col-md-4">
-        <a href="/user/room/<%= r._id %>" class="text-decoration-none text-dark">
-          <div class="card h-100 border-0 shadow-sm rounded-4">
-            <img
-              src="<%= r.image && r.image.startsWith('/images/') ? r.image : (r.image ? '/images/' + r.image : '/images/room1.jpeg') %>"
-              onerror="this.src='/images/room1.jpeg'"
-              class="card-img-top rounded-top-4"
-              style="height:220px;object-fit:cover;"
-              alt="<%= r.name || r.type || 'Room' %>">
-            <div class="card-body">
-              <h3 class="h6 fw-bold mb-1"><%= r.name || (r.type + ' - ' + r.roomNumber) %></h3>
-              <p class="small text-muted mb-2"><%= r.location || '—' %></p>
-              <div class="d-flex align-items-center justify-content-between">
-                <span class="fw-bold text-info"><%= (r.price||0).toLocaleString() %>₫/đêm</span>
-                <span class="badge bg-success-subtle text-success"><%= r.status %></span>
+  <div class="col-6 col-lg-2">
+    <label class="form-label small text-muted">Địa điểm</label>
+    <input class="form-control" type="text" name="location" value="<%= query.location || '' %>" placeholder="Hà Nội">
+  </div>
+
+  <div class="col-6 col-lg-2">
+    <label class="form-label small text-muted">Giá từ</label>
+    <input class="form-control" type="number" name="minPrice" value="<%= query.minPrice || '' %>" min="0">
+  </div>
+  <div class="col-6 col-lg-2">
+    <label class="form-label small text-muted">Giá đến</label>
+    <input class="form-control" type="number" name="maxPrice" value="<%= query.maxPrice || '' %>" min="0">
+  </div>
+
+  <div class="col-6 col-lg-2">
+    <label class="form-label small text-muted">Nhận phòng</label>
+    <input class="form-control" type="date" name="checkIn" value="<%= query.checkIn || '' %>">
+  </div>
+  <div class="col-6 col-lg-2">
+    <label class="form-label small text-muted">Trả phòng</label>
+    <input class="form-control" type="date" name="checkOut" value="<%= query.checkOut || '' %>">
+  </div>
+
+  <div class="col-6 col-lg-2">
+    <label class="form-label small text-muted">Sắp xếp</label>
+    <select class="form-select" name="sort">
+      <option value="price_asc"  <%= query.sort==='price_asc'?'selected':'' %> >Giá tăng dần</option>
+      <option value="price_desc" <%= query.sort==='price_desc'?'selected':'' %> >Giá giảm dần</option>
+      <option value="name_asc"   <%= query.sort==='name_asc'?'selected':'' %> >Tên A → Z</option>
+      <option value="name_desc"  <%= query.sort==='name_desc'?'selected':'' %> >Tên Z → A</option>
+    </select>
+  </div>
+
+  <div class="col-12 col-lg-2 d-grid align-self-end">
+    <button class="btn btn-info text-white fw-semibold">Tìm phòng</button>
+  </div>
+</form>
+
+    <!-- KẾT QUẢ -->
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <div class="small text-muted">
+        Tìm thấy <strong><%= rooms.length %></strong> phòng
+        <% if (query.location) { %> tại <strong><%= query.location %></strong><% } %>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <% if (rooms.length === 0) { %>
+        <div class="col-12 text-muted">Không có phòng phù hợp. Hãy thử thay đổi bộ lọc.</div>
+      <% } %>
+
+      <% rooms.forEach(r => { %>
+        <div class="col-sm-6 col-lg-4">
+          <a href="/user/room/<%= r._id %>" class="text-decoration-none text-dark">
+            <div class="card h-100 border-0 shadow-sm rounded-4">
+              <img
+                src="<%= r.image && r.image.startsWith('/images/') ? r.image : (r.image ? '/images/' + r.image : '/images/room1.jpeg') %>"
+                class="card-img-top rounded-top-4" style="height:220px;object-fit:cover"
+                alt="<%= r.name || r.type || 'Room' %>"
+                onerror="this.src='/images/room1.jpeg'">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                  <h3 class="h6 fw-bold mb-0"><%= r.name || (r.type + ' - ' + (r.roomNumber || '')) %></h3>
+                  <span class="badge <%= (r.status==='available'?'bg-success-subtle text-success':'bg-secondary') %>">
+                    <%= r.status || 'available' %>
+                  </span>
+                </div>
+                <p class="small text-muted mb-2"><%= r.location || '—' %></p>
+                <div class="d-flex align-items-center justify-content-between">
+                  <span class="fw-bold text-info"><%= (r.price||0).toLocaleString() %>₫/đêm</span>
+                  <span class="small text-muted"><%= r.type || '' %></span>
+                </div>
               </div>
             </div>
-          </div>
-        </a>
-      </div>
-    <% }) %>
+          </a>
+        </div>
+      <% }) %>
+    </div>
   </div>
-</div>
+</section>
 
 <%- include('partials/footer') %>
