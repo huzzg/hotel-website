@@ -3,88 +3,95 @@ const express = require('express');
 const router = express.Router();
 
 const Room = require('../models/Room');
+const Booking = require('../models/Booking');
 
-// Thử nạp Booking nếu dự án có, nếu không có thì bỏ qua (không làm app crash)
-let Booking = null;
-try { Booking = require('../models/Booking'); } catch (_) { Booking = null; }
+// Kiểm tra có query thực sự hay không
+const hasQuery = (q) => Object.keys(q || {}).some((k) => (q[k] ?? '') !== '');
 
-// GET /search
-router.get('/search', async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
-    const {
-      q = '',
-      type = '',
-      location = '',
-      minPrice = '',
-      maxPrice = '',
-      checkIn = '',
-      checkOut = '',
-      sort = 'price_asc',
-    } = req.query;
+    const q = (req.query.q || '').trim();
+    const type = (req.query.type || '').trim();       // Standard | Superior | Deluxe | Suite
+    const city = (req.query.city || '').trim();       // Hà Nội / Đà Nẵng / TP.HCM / Phú Quốc ...
+    const min = parseInt(req.query.min || '', 10);
+    const max = parseInt(req.query.max || '', 10);
+    const checkIn = (req.query.checkIn || '').trim();
+    const checkOut = (req.query.checkOut || '').trim();
+    const sort = (req.query.sort || 'priceAsc').trim();
 
-    // --- Build filter ---
-    const filter = {};
-    // tìm theo text: name / type / roomNumber / location
-    if (q) {
-      const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filter.$or = [
-        { name:       { $regex: esc(q), $options: 'i' } },
-        { type:       { $regex: esc(q), $options: 'i' } },
-        { roomNumber: { $regex: esc(q), $options: 'i' } },
-        { location:   { $regex: esc(q), $options: 'i' } },
-      ];
-    }
-    if (type)     filter.type     = new RegExp(type, 'i');
-    if (location) filter.location = new RegExp(location, 'i');
+    let rooms = [];
+    let total = 0;
 
-    const min = Number(minPrice);
-    const max = Number(maxPrice);
-    if (!Number.isNaN(min) || !Number.isNaN(max)) {
-      filter.price = {};
-      if (!Number.isNaN(min)) filter.price.$gte = min;
-      if (!Number.isNaN(max)) filter.price.$lte = max;
-      if (Object.keys(filter.price).length === 0) delete filter.price;
-    }
-
-    // Mặc định chỉ lấy phòng available
-    filter.status = 'available';
-
-    // --- Loại các phòng đã bị đặt chồng ngày (nếu có model Booking) ---
-    if (Booking && checkIn && checkOut) {
-      const start = new Date(checkIn);
-      const end   = new Date(checkOut);
-      if (!isNaN(start) && !isNaN(end) && end > start) {
-        // tìm các booking trùng khoảng (start <= b.end && end >= b.start)
-        const conflicts = await Booking.find({
-          $or: [
-            { checkIn:  { $lte: end },   checkOut: { $gte: start } },
-            { startDate:{ $lte: end },   endDate:  { $gte: start } }, // nếu DB dùng tên khác
-          ],
-          status: { $nin: ['cancelled'] }
-        }).select('room').lean();
-
-        const busyIds = conflicts.map(b => b.room).filter(Boolean);
-        if (busyIds.length) {
-          filter._id = { $nin: busyIds };
-        }
+    if (hasQuery(req.query)) {
+      // 1) Lọc cơ bản theo text / loại / địa điểm / khoảng giá
+      const filter = {};
+      if (q) {
+        filter.$or = [
+          { name: new RegExp(q, 'i') },
+          { code: new RegExp(q, 'i') },
+          { city: new RegExp(q, 'i') },
+          { type: new RegExp(q, 'i') }
+        ];
       }
+      if (type) filter.type = type;
+      if (city) filter.city = city;
+      if (!Number.isNaN(min)) filter.price = { ...(filter.price || {}), $gte: min };
+      if (!Number.isNaN(max)) filter.price = { ...(filter.price || {}), $lte: max };
+
+      rooms = await Room.find(filter).lean();
+
+      // 2) Loại trừ phòng đã bị đặt trùng ngày
+      if (checkIn && checkOut) {
+        const start = new Date(checkIn);
+        const end = new Date(checkOut);
+
+        // điều kiện overlap: booking.checkIn < end && booking.checkOut > start
+        const overlaps = await Booking.find({
+          status: { $ne: 'cancelled' },
+          checkIn: { $lt: end },
+          checkOut: { $gt: start }
+        })
+          .select('roomId')
+          .lean();
+
+        const bookedIds = new Set(overlaps.map((b) => String(b.roomId)));
+        rooms = rooms.filter((r) => !bookedIds.has(String(r._id)));
+      }
+
+      // 3) Sắp xếp
+      switch (sort) {
+        case 'priceDesc':
+          rooms.sort((a, b) => (b.price || 0) - (a.price || 0));
+          break;
+        case 'nameAsc':
+          rooms.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          break;
+        case 'nameDesc':
+          rooms.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+          break;
+        default: // priceAsc
+          rooms.sort((a, b) => (a.price || 0) - (b.price || 0));
+          break;
+      }
+
+      total = rooms.length;
     }
 
-    // --- Sort ---
-    const sortOpt = { price: 1 };
-    if (sort === 'price_desc')       Object.assign(sortOpt, { price: -1 });
-    else if (sort === 'name_asc')    Object.assign(sortOpt, { name: 1 });
-    else if (sort === 'name_desc')   Object.assign(sortOpt, { name: -1 });
-    else                             Object.assign(sortOpt, { price: 1 });
-
-    // --- Query ---
-    const rooms = await Room.find(filter).sort(sortOpt).limit(60).lean();
-
-    // Render trang search kèm lại query để fill form
+    // Luôn render trang search (kể cả chưa nhập gì)
     res.render('search', {
-      title: 'Tìm kiếm phòng',
+      title: 'Tìm kiếm',
       rooms,
-      query: { q, type, location, minPrice, maxPrice, checkIn, checkOut, sort }
+      total,
+      query: {
+        q,
+        type,
+        city,
+        min: Number.isNaN(min) ? '' : min,
+        max: Number.isNaN(max) ? '' : max,
+        checkIn,
+        checkOut,
+        sort
+      }
     });
   } catch (err) {
     next(err);

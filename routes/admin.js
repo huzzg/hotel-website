@@ -1,124 +1,169 @@
 // routes/admin.js
 const express = require('express');
 const router = express.Router();
-const requireAdmin = require('../middleware/requireAdmin'); // bạn đã có file này
+
+const requireAdmin = require('../middleware/requireAdmin');
+const User = require('../models/User');
 const Room = require('../models/Room');
+const Booking = require('../models/Booking');
+const Payment = require('../models/Payment');
+const Discount = require('../models/Discount');
 
-// nạp mềm User/Booking nếu có
-let User = null, Booking = null;
-try { User = require('../models/User'); } catch (_) {}
-try { Booking = require('../models/Booking'); } catch (_) {}
+// Bảo vệ tất cả route admin
+router.use(requireAdmin);
 
-/* ========== PAGES ========== */
-
-// Dashboard
-router.get(['/', '/dashboard'], requireAdmin, async (req, res, next) => {
+// ========== DASHBOARD ==========
+router.get('/dashboard', async (req, res, next) => {
   try {
-    const [totalRooms, availableRooms, totalUsers, totalBookings] = await Promise.all([
+    const [users, rooms, bookings, paidAgg] = await Promise.all([
+      User.countDocuments({}),
       Room.countDocuments({}),
-      Room.countDocuments({ status: 'available' }),
-      User ? User.countDocuments({ role: { $ne: 'admin' } }) : Promise.resolve(0),
-      Booking ? Booking.countDocuments({}) : Promise.resolve(0),
+      Booking.countDocuments({}),
+      Payment.aggregate([
+        { $match: { status: 'paid' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ])
     ]);
 
-    // doanh thu 7 ngày (nếu có Booking)
-    let revenueSeries = [];
-    if (Booking) {
-      const since = new Date(); since.setDate(since.getDate() - 6); since.setHours(0,0,0,0);
-      const agg = await Booking.aggregate([
-        { $match: { createdAt: { $gte: since } } },
-        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, total: { $sum: "$totalPrice" } } },
-        { $sort: { _id: 1 } }
-      ]);
-      for (let i=6;i>=0;i--){
-        const d = new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
-        const key = d.toISOString().slice(0,10);
-        const hit = agg.find(a => a._id === key);
-        revenueSeries.push({ date: key.slice(5), total: hit ? hit.total : 0 });
-      }
-    }
+    const revenue = paidAgg && paidAgg.length ? paidAgg[0].total : 0;
+
+    const monthly = await Payment.aggregate([
+      { $match: { status: 'paid' } },
+      {
+        $group: {
+          _id: { y: { $year: '$createdAt' }, m: { $month: '$createdAt' } },
+          total: { $sum: '$amount' }
+        }
+      },
+      { $sort: { '_id.y': 1, '_id.m': 1 } }
+    ]);
 
     res.render('admin-dashboard', {
-      title: 'Bảng điều khiển',
-      stats: { totalRooms, availableRooms, totalUsers, totalBookings },
-      revenueSeries
+      title: 'Admin • Dashboard',
+      stat: { users, rooms, bookings, revenue },
+      monthly
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ========== ROOMS ==========
+router.get('/rooms', async (req, res, next) => {
+  try {
+    const rooms = await Room.find({}).sort({ createdAt: -1 });
+    res.render('admin-rooms', { title: 'Admin • Quản lý phòng', rooms });
+  } catch (e) { next(e); }
+});
+
+router.post('/rooms', async (req, res, next) => {
+  try {
+    const { roomNumber, type, price, status, location, image } = req.body;
+    await Room.create({ roomNumber, type, price, status, location, image });
+    res.redirect('/admin/rooms');
+  } catch (e) { next(e); }
+});
+
+router.post('/rooms/:id', async (req, res, next) => {
+  try {
+    const { roomNumber, type, price, status, location, image } = req.body;
+    await Room.findByIdAndUpdate(req.params.id, {
+      roomNumber, type, price, status, location, image
+    });
+    res.redirect('/admin/rooms');
+  } catch (e) { next(e); }
+});
+
+router.post('/rooms/:id/delete', async (req, res, next) => {
+  try {
+    await Room.findByIdAndDelete(req.params.id);
+    res.redirect('/admin/rooms');
+  } catch (e) { next(e); }
+});
+
+// ========== BOOKINGS ==========
+router.get('/bookings', async (req, res, next) => {
+  try {
+    const bookings = await Booking.find({})
+      .populate('userId', 'username email')
+      .populate('roomId', 'roomNumber type price')
+      .sort({ createdAt: -1 });
+
+    res.render('admin-bookings', {
+      title: 'Admin • Đơn đặt phòng',
+      bookings
     });
   } catch (e) { next(e); }
 });
 
-// Trang quản lý phòng
-router.get('/rooms', requireAdmin, async (req, res, next) => {
+router.post('/bookings/:id/status', async (req, res, next) => {
   try {
-    const rooms = await Room.find({}).sort({ createdAt: -1 }).lean();
-    res.render('admin-rooms', { title: 'Quản lý phòng', rooms });
+    const { status } = req.body; // pending | checked_in | checked_out | cancelled
+    await Booking.findByIdAndUpdate(req.params.id, { status });
+    res.redirect('/admin/bookings');
   } catch (e) { next(e); }
 });
 
-// Trang khách hàng
-router.get('/users', requireAdmin, async (req, res, next) => {
+// ========== USERS ==========
+router.get('/users', async (req, res, next) => {
   try {
-    const users = User
-      ? await User.find({ role: { $ne: 'admin' } }).sort({ createdAt: -1 }).lean()
-      : [];
-    res.render('admin-users', { title: 'Khách hàng', users, note: User ? null : 'Chưa có model User.' });
+    const users = await User.find({}).sort({ createdAt: -1 });
+    res.render('admin-users', { title: 'Admin • Khách hàng', users });
   } catch (e) { next(e); }
 });
 
-/* ========== API ========== */
-
-// API rooms (list + filter)
-router.get('/api/rooms', requireAdmin, async (req, res) => {
-  const { type, status, q } = req.query;
-  const filter = {};
-  if (type) filter.type = new RegExp(type, 'i');
-  if (status) filter.status = status;
-  if (q) filter.$or = [
-    { name: new RegExp(q, 'i') },
-    { roomNumber: new RegExp(q, 'i') },
-    { type: new RegExp(q, 'i') },
-    { location: new RegExp(q, 'i') },
-  ];
-  const rooms = await Room.find(filter).sort({ createdAt: -1 }).lean();
-  res.json({ ok: true, rooms });
-});
-
-// create room
-router.post('/api/rooms', requireAdmin, async (req, res) => {
+router.post('/users/:id/toggle', async (req, res, next) => {
   try {
-    const room = await Room.create(req.body);
-    res.json({ ok: true, room });
-  } catch (e) { res.status(400).json({ ok: false, message: e.message }); }
+    const u = await User.findById(req.params.id);
+    if (!u) return res.redirect('/admin/users');
+    const active = typeof u.active === 'boolean' ? !u.active : false;
+    u.active = active;
+    await u.save();
+    res.redirect('/admin/users');
+  } catch (e) { next(e); }
 });
 
-// update room
-router.put('/api/rooms/:id', requireAdmin, async (req, res) => {
+// ========== DISCOUNTS ==========
+router.get('/discounts', async (req, res, next) => {
   try {
-    const room = await Room.findByIdAndUpdate(req.params.id, req.body, { new: true }).lean();
-    res.json({ ok: true, room });
-  } catch (e) { res.status(400).json({ ok: false, message: e.message }); }
+    const discounts = await Discount.find({}).sort({ createdAt: -1 });
+    res.render('admin-discounts', { title: 'Admin • Mã giảm giá', discounts });
+  } catch (e) { next(e); }
 });
 
-// delete room
-router.delete('/api/rooms/:id', requireAdmin, async (req, res) => {
+router.post('/discounts', async (req, res, next) => {
   try {
-    await Room.findByIdAndDelete(req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(400).json({ ok: false, message: e.message }); }
+    const { code, percent, startDate, endDate, active } = req.body;
+    await Discount.create({
+      code,
+      percent: Number(percent),
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
+      active: active === 'on'
+    });
+    res.redirect('/admin/discounts');
+  } catch (e) { next(e); }
 });
 
-// API users (nếu có model User)
-router.get('/api/users', requireAdmin, async (req, res) => {
-  if (!User) return res.json({ ok: true, users: [] });
-  const { q } = req.query;
-  const filter = q ? { $or: [{ username: new RegExp(q,'i') }, { email: new RegExp(q,'i') }] } : {};
-  const users = await User.find(filter).sort({ createdAt: -1 }).lean();
-  res.json({ ok: true, users });
+router.post('/discounts/:id', async (req, res, next) => {
+  try {
+    const { code, percent, startDate, endDate, active } = req.body;
+    await Discount.findByIdAndUpdate(req.params.id, {
+      code,
+      percent: Number(percent),
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
+      active: active === 'on'
+    });
+    res.redirect('/admin/discounts');
+  } catch (e) { next(e); }
 });
 
-router.delete('/api/users/:id', requireAdmin, async (req, res) => {
-  if (!User) return res.status(400).json({ ok:false, message:'No User model' });
-  await User.findByIdAndDelete(req.params.id);
-  res.json({ ok: true });
+router.post('/discounts/:id/delete', async (req, res, next) => {
+  try {
+    await Discount.findByIdAndDelete(req.params.id);
+    res.redirect('/admin/discounts');
+  } catch (e) { next(e); }
 });
 
 module.exports = router;

@@ -1,76 +1,39 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <title><%= (typeof title !== 'undefined' && title) ? title : 'Khách sạn Phenikaa' %></title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-  <!-- Bootstrap -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- Custom CSS -->
+  <meta charset="UTF-8">
+  <title><%= title || "Khách sạn Phenikaa" %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+  <header class="bg-info py-3 shadow-sm">
+    <div class="container d-flex justify-content-between align-items-center">
+      <a href="/" class="fw-bold fs-5 text-white text-decoration-none">KHÁCH SẠN PHENIKAA</a>
 
-<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #0094da;">
-  <div class="container">
-    <!-- LOGO BÊN TRÁI -->
-    <a class="navbar-brand fw-bold text-white" href="/" style="font-size: 20px;">
-      KHÁCH SẠN PHENIKAA
-    </a>
+      <nav class="d-flex align-items-center gap-3">
+        <a href="/" class="text-white text-decoration-none fw-semibold">Trang chủ</a>
+        <a href="/search" class="text-white text-decoration-none fw-semibold">Tìm kiếm</a>
 
-    <!-- NÚT TOGGLER MOBILE -->
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <!-- MENU BÊN PHẢI -->
-    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-      <ul class="navbar-nav align-items-lg-center">
-
-        <!-- TRANG CHỦ -->
-        <li class="nav-item">
-          <a class="nav-link text-white fw-medium" href="/">Trang chủ</a>
-        </li>
-
-        <!-- TÌM KIẾM -->
-        <li class="nav-item">
-          <a class="nav-link text-white fw-medium" href="/search">Tìm kiếm</a>
-        </li>
-
-        <!-- NẾU ĐÃ ĐĂNG NHẬP -->
-        <% if (typeof currentUser !== 'undefined' && currentUser) { %>
-          <li class="nav-item dropdown ms-lg-3">
-            <a class="nav-link dropdown-toggle text-white fw-medium" href="#" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="bi bi-person-circle me-1"></i><%= currentUser.name || 'Người dùng' %>
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+        <% if (currentUser) { %>
+          <div class="dropdown">
+            <button class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+              <%= currentUser.username %>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="/user/profile">Hồ sơ</a></li>
               <% if (currentUser.role === 'admin') { %>
-                <li><a class="dropdown-item" href="/admin">Bảng điều khiển</a></li>
-                <li><hr class="dropdown-divider"></li>
-              <% } else { %>
-                <li><a class="dropdown-item" href="/user/profile">Hồ sơ</a></li>
-                <li><a class="dropdown-item" href="/user/history">Lịch sử đặt phòng</a></li>
-                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="/admin/dashboard">Trang quản trị</a></li>
               <% } %>
+              <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item text-danger" href="/auth/logout">Đăng xuất</a></li>
             </ul>
-          </li>
-
-        <!-- NẾU CHƯA ĐĂNG NHẬP -->
+          </div>
         <% } else { %>
-          <li class="nav-item ms-lg-3">
-            <a href="/auth/login" class="btn btn-light btn-sm fw-medium px-3">Đăng nhập</a>
-          </li>
-          <li class="nav-item ms-lg-2">
-            <a href="/auth/register" class="btn btn-outline-light btn-sm fw-medium px-3">Đăng ký</a>
-          </li>
+          <a href="/auth/login" class="btn btn-light btn-sm">Đăng nhập</a>
+          <a href="/auth/register" class="btn btn-outline-light btn-sm">Đăng ký</a>
         <% } %>
-      </ul>
+      </nav>
     </div>
-  </div>
-</nav>
+  </header>

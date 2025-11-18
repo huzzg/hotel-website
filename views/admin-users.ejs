@@ -1,61 +1,51 @@
 <%- include('partials/header') %>
 
-<div class="container py-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0">Khách hàng</h4>
-  </div>
+<div class="container my-4">
+  <ul class="nav nav-pills mb-3">
+    <li class="nav-item"><a class="nav-link" href="/admin/dashboard">Tổng quan</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/rooms">Phòng</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/bookings">Đơn đặt</a></li>
+    <li class="nav-item"><a class="nav-link active" href="/admin/users">Khách hàng</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/discounts">Mã giảm giá</a></li>
+  </ul>
 
-  <div class="card border-0 shadow-sm">
-    <div class="card-body">
-      <% if (note) { %><div class="alert alert-info"><%= note %></div><% } %>
-
-      <div class="row g-2 mb-3">
-        <div class="col-md-4"><input id="uq" class="form-control" placeholder="Tìm theo tên / email"></div>
-        <div class="col-md-2 d-grid"><button class="btn btn-outline-primary" onclick="loadUsers()">Tìm</button></div>
-      </div>
-
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead><tr><th>Tên</th><th>Email</th><th>Điện thoại</th><th>Ngày tạo</th><th></th></tr></thead>
-          <tbody id="utb">
-            <% if (users && users.length) { %>
-              <% users.forEach(u => { %>
-              <tr>
-                <td><%= u.profile?.name || u.username || '' %></td>
-                <td><%= u.email || '' %></td>
-                <td><%= u.phone || u.profile?.phone || '' %></td>
-                <td><%= new Date(u.createdAt).toLocaleString() %></td>
-                <td class="text-end"><button class="btn btn-sm btn-outline-danger" onclick="delUser('<%= u._id %>')">Xoá</button></td>
-              </tr>
-              <% }) %>
-            <% } else { %>
-              <tr><td colspan="5" class="text-muted">Chưa có dữ liệu.</td></tr>
-            <% } %>
-          </tbody>
-        </table>
-      </div>
+  <div class="card p-3 border-0 shadow-sm rounded-4">
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+        <tr>
+          <th>#</th><th>Tài khoản</th><th>Email</th><th>Họ tên</th><th>SĐT</th><th>Role</th><th>Trạng thái</th><th></th>
+        </tr>
+        </thead>
+        <tbody>
+        <% users.forEach((u,i)=>{ %>
+          <tr>
+            <td><%= i+1 %></td>
+            <td><%= u.username %></td>
+            <td><%= u.email %></td>
+            <td><%= u.profile?.name || '' %></td>
+            <td><%= u.profile?.phone || '' %></td>
+            <td><span class="badge bg-info text-dark"><%= u.role || 'user' %></span></td>
+            <td>
+              <span class="badge bg-<%= u.active===false?'secondary':'success' %>">
+                <%= u.active===false?'blocked':'active' %>
+              </span>
+            </td>
+            <td class="text-end">
+              <% if (u.role !== 'admin') { %>
+              <form action="/admin/users/<%= u._id %>/toggle" method="post">
+                <button class="btn btn-sm btn-outline-warning">
+                  <%= u.active===false?'Bỏ chặn':'Chặn' %>
+                </button>
+              </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
-
-<script>
-  async function loadUsers(){
-    const res = await fetch('/admin/api/users?q='+encodeURIComponent(document.getElementById('uq').value));
-    const data = await res.json();
-    utb.innerHTML = (data.users||[]).map(u=>`
-      <tr>
-        <td>${u.profile?.name || u.username || ''}</td>
-        <td>${u.email || ''}</td>
-        <td>${u.phone || u.profile?.phone || ''}</td>
-        <td>${new Date(u.createdAt).toLocaleString()}</td>
-        <td class="text-end"><button class="btn btn-sm btn-outline-danger" onclick="delUser('${u._id}')">Xoá</button></td>
-      </tr>`).join('') || '<tr><td colspan="5" class="text-muted">Không có dữ liệu.</td></tr>';
-  }
-  async function delUser(id){
-    if(!confirm('Xoá khách hàng?')) return;
-    const res = await fetch('/admin/api/users/'+id,{method:'DELETE'});
-    if((await res.json()).ok) loadUsers(); else alert('Không xoá được');
-  }
-</script>
 
 <%- include('partials/footer') %>

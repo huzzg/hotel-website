@@ -1,77 +1,88 @@
 // app.js
 require('dotenv').config();
-
-const path = require('path');
 const express = require('express');
-const cookieParser = require('cookie-parser');
-
-const { connectDB } = require('./config/db');
-const Room = require('./models/Room');
-
-// ROUTES sẵn có của bạn
-const authRoutes  = require('./routes/auth');
-const userRoutes  = require('./routes/user');
-const adminRoutes = require('./routes/admin'); // UI + API admin (đã gộp)
-
-// ROUTES tuỳ tồn tại
-let apiRouter = null;
-let searchRouter = null;
-let paymentRouter = null;
-try { apiRouter     = require('./routes/api'); }      catch (_) {}
-try { searchRouter  = require('./routes/search'); }   catch (_) {}
-try { paymentRouter = require('./routes/payment'); }  catch (_) {}
-
-// MIDDLEWARE
-const { attachUser, requireAuth } = require('./middleware/authMiddleware');
-const requireAdmin               = require('./middleware/requireAdmin');
-const errorHandler               = require('./middleware/errorHandler');
-
+const path = require('path');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const flash = require('connect-flash');
+const methodOverride = require('method-override');
 const app = express();
-connectDB();
 
-// View + static
+// ===== View & static =====
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Parsers
-app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+app.use(express.json());
+app.use(methodOverride('_method'));
 
-// Bảo đảm luôn có currentUser trong EJS (kể cả chưa đăng nhập)
-app.use((req, res, next) => { res.locals.currentUser = null; next(); });
-// Gắn user từ JWT (không redirect)
-app.use(attachUser);
+// ===== DB connect =====
+require('./config/db');
 
-// Các route public
-if (searchRouter) app.use('/', searchRouter);   // /search
-if (apiRouter)    app.use('/', apiRouter);      // /api/...
-app.use('/auth', authRoutes);
+// ===== Session =====
+app.use(
+  session({
+    secret: 'phenikaa_secret_key',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/hotel',
+      ttl: 24 * 60 * 60,
+    }),
+    cookie: { maxAge: 1000 * 60 * 60 * 24 },
+  })
+);
 
-// Trang chủ – lấy phòng nổi bật từ DB
-app.get('/', async (req, res, next) => {
-  try {
-    const rooms = await Room.find({ status: { $ne: 'maintenance' } })
-      .sort({ createdAt: -1 })
-      .limit(6)
-      .lean();
-    res.render('index', { title: 'Trang chủ', rooms });
-  } catch (err) { next(err); }
+app.use(flash());
+
+// Biến dùng chung cho view
+app.use((req, res, next) => {
+  res.locals.currentUser = req.session.user || null;
+  res.locals.success = req.flash('success');
+  res.locals.error = req.flash('error');
+  next();
 });
 
-// Khu vực người dùng (nếu có yêu cầu đăng nhập)
-if (userRoutes) app.use('/user', requireAuth, userRoutes);
+// ===== Models =====
+const Room = require('./models/Room');
 
-// Khu vực Admin (CHỈ mount 1 lần)
-app.use('/admin', requireAdmin, adminRoutes);
+// ===== Routes =====
+const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
+const userRoutes = require('./routes/user');
+const searchRoutes = require('./routes/search');
+const paymentRoutes = require('./routes/payment');
 
-// Thanh toán (nếu có) – cần đăng nhập
-if (paymentRouter) app.use('/payment', requireAuth, paymentRouter);
+app.use('/auth', authRoutes);
+app.use('/admin', adminRoutes);
+app.use('/user', userRoutes);
+app.use('/search', searchRoutes);
+app.use('/payment', paymentRoutes);
 
-// Error handler
-app.use(errorHandler);
+// ===== Trang chủ (luôn truyền rooms, kể cả khi DB lỗi) =====
+app.get('/', async (req, res, next) => {
+  try {
+    let rooms = [];
+    try {
+      // Lấy 2 phòng nổi bật để hiển thị; nếu DB chưa kết nối sẽ vào catch
+      rooms = await Room.find().limit(2).lean();
+    } catch (e) {
+      rooms = []; // fallback an toàn để view không lỗi
+    }
+    res.render('index', { title: 'Khách sạn Phenikaa', rooms });
+  } catch (err) {
+    next(err);
+  }
+});
 
-// Start
+// ===== Error handler =====
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err.message);
+  res.status(500).send('Something went wrong!');
+});
+
+// ===== Start =====
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server chạy tại http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✅ Server chạy tại http://localhost:${PORT}`);
+});

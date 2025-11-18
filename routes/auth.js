@@ -1,112 +1,124 @@
 // routes/auth.js
-const express = require("express");
+const express = require('express');
+const bcrypt = require('bcrypt');
 const router = express.Router();
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const User = require('../models/User');
 
-// GET: Login
-router.get("/login", (req, res) => {
-  res.render("login", { title: "Đăng nhập", authPage: true, error: null, email: "" });
+// Helper
+const t = (v) => (typeof v === 'string' ? v.trim() : '');
+
+// ========== GET: Login ==========
+router.get('/login', (req, res) => {
+  res.render('login', { title: 'Đăng nhập', error: null, identifier: '' });
 });
 
-// POST: Login
-router.post("/login", async (req, res, next) => {
+// ========== POST: Login ==========
+router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const identifier = t(req.body.identifier);
+    const password = t(req.body.password);
 
-    if (!email || !password) {
-      return res.status(400).render("login", {
-        title: "Đăng nhập",
-        authPage: true,
-        error: "Vui lòng nhập đầy đủ thông tin",
-        email
+    if (!identifier || !password) {
+      return res.status(400).render('login', {
+        title: 'Đăng nhập',
+        error: 'Vui lòng nhập đầy đủ thông tin',
+        identifier
       });
     }
 
-    const user = await User.findOne({ email });
+    const query = identifier.includes('@')
+      ? { email: identifier.toLowerCase() }
+      : { username: identifier };
+
+    const user = await User.findOne(query);
     if (!user) {
-      return res.status(400).render("login", {
-        title: "Đăng nhập",
-        authPage: true,
-        error: "Email không tồn tại",
-        email
+      return res.status(400).render('login', {
+        title: 'Đăng nhập',
+        error: 'Email hoặc tên đăng nhập không tồn tại',
+        identifier
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).render("login", {
-        title: "Đăng nhập",
-        authPage: true,
-        error: "Sai mật khẩu",
-        email
+    const ok = await bcrypt.compare(password, user.password || '');
+    if (!ok) {
+      return res.status(400).render('login', {
+        title: 'Đăng nhập',
+        error: 'Mật khẩu không đúng',
+        identifier
       });
     }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role, email: user.email, name: user.name },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+    req.session.user = {
+      _id: user._id,
+      username: user.username,
+      role: user.role || 'user',
+      email: user.email
+    };
+    res.locals.currentUser = req.session.user;
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-
-    if (user.role === "admin") return res.redirect("/admin");
-    return res.redirect("/");
-  } catch (err) { next(err); }
+    return res.redirect(user.role === 'admin' ? '/admin/dashboard' : '/');
+  } catch (err) {
+    next(err);
+  }
 });
 
-// GET: Register
-router.get("/register", (req, res) => {
-  res.render("register", { title: "Đăng ký", authPage: true, error: null });
+// ========== GET: Register ==========
+router.get('/register', (req, res) => {
+  res.render('register', { title: 'Đăng ký', error: null });
 });
 
-// POST: Register
-router.post("/register", async (req, res, next) => {
+// ========== POST: Register ==========
+router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const name = t(req.body.name);
+    const email = t(req.body.email).toLowerCase();
+    const phone = t(req.body.phone);
+    const password = t(req.body.password);
 
     if (!name || !email || !password) {
-      return res.status(400).render("register", {
-        title: "Đăng ký",
-        authPage: true,
-        error: "Vui lòng điền họ tên, email và mật khẩu"
+      return res.render('register', {
+        title: 'Đăng ký',
+        error: 'Vui lòng nhập đầy đủ thông tin'
       });
     }
 
     const existed = await User.findOne({ email });
     if (existed) {
-      return res.status(400).render("register", {
-        title: "Đăng ký",
-        authPage: true,
-        error: "Email đã tồn tại"
+      return res.render('register', {
+        title: 'Đăng ký',
+        error: 'Email đã tồn tại'
       });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 10);
+    const username = email.split('@')[0];
 
-    const newUser = new User({
-      name,
+    const user = await User.create({
+      username,
       email,
-      phone,
-      password: hashed,
-      role: "user",
+      password: hash,
+      role: 'user',
+      active: true,
+      profile: { name, phone }
     });
 
-    await newUser.save();
-    return res.redirect("/auth/login");
-  } catch (err) { next(err); }
+    req.session.user = {
+      _id: user._id,
+      username: user.username,
+      role: 'user',
+      email: user.email
+    };
+
+    res.locals.currentUser = req.session.user;
+    res.redirect('/');
+  } catch (err) {
+    next(err);
+  }
 });
 
-// Logout
-router.get("/logout", (req, res) => {
-  res.clearCookie("token", { httpOnly: true, sameSite: "lax" });
-  res.redirect("/");
+// ========== GET: Logout ==========
+router.get('/logout', (req, res) => {
+  req.session.destroy(() => res.redirect('/auth/login'));
 });
 
 module.exports = router;

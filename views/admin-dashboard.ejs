@@ -1,82 +1,60 @@
-<!-- views/admin-dashboard.ejs -->
 <%- include('partials/header') %>
-<div class="container mt-5 pt-5">
-  <h2 class="mb-4">Bảng Điều Khiển Quản Trị</h2>
 
-  <!-- Thống kê -->
-  <div class="row mb-4">
-    <div class="col-md-4"><div class="card text-white bg-primary"><div class="card-body"><h5>Doanh thu</h5><h3><%= revenue %>$</h3></div></div></div>
-    <div class="col-md-4"><div class="card text-white bg-success"><div class="card-body"><h5>Tỷ lệ lấp đầy</h5><h3><%= occupancyRate %>%</h3></div></div></div>
-    <div class="col-md-4"><div class="card text-white bg-info"><div class="card-body"><h5>Đặt phòng</h5><h3><%= bookings.length %></h3></div></div></div>
-  </div>
+<div class="container my-4">
+  <!-- Nav Admin -->
+  <ul class="nav nav-pills mb-3">
+    <li class="nav-item"><a class="nav-link active" href="/admin/dashboard">Tổng quan</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/rooms">Phòng</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/bookings">Đơn đặt</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/users">Khách hàng</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/discounts">Mã giảm giá</a></li>
+  </ul>
 
-  <!-- Quản lý mã giảm giá -->
-  <div class="card mb-4">
-    <div class="card-header">Quản Lý Mã Giảm Giá</div>
-    <div class="card-body">
-      <form action="/admin/discount/create" method="POST" class="row g-2 mb-3">
-        <div class="col"><input type="text" name="code" placeholder="Mã" class="form-control" required></div>
-        <div class="col"><input type="number" name="discountPercent" placeholder="%" min="1" max="100" class="form-control" required></div>
-        <div class="col"><input type="date" name="expiresAt" class="form-control" required></div>
-        <div class="col"><button type="submit" class="btn btn-success">Thêm</button></div>
-      </form>
-
-      <table class="table table-sm">
-        <thead><tr><th>Mã</th><th>Giảm</th><th>Hết hạn</th><th>Trạng thái</th><th></th></tr></thead>
-        <tbody>
-          <% discounts.forEach(d => { %>
-            <tr>
-              <td><strong><%= d.code %></strong></td>
-              <td><%= d.discountPercent %>%</td>
-              <td><%= new Date(d.expiresAt).toLocaleDateString('vi-VN') %></td>
-              <td><%= d.isActive ? 'Hoạt động' : 'Hết hạn' %></td>
-              <td>
-                <form action="/admin/discount/delete/<%= d._id %>" method="POST" style="display:inline">
-                  <button type="submit" class="btn btn-danger btn-sm">Xóa</button>
-                </form>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="card p-4 border-0 shadow-sm rounded-4">
+        <div class="small text-muted">Người dùng</div>
+        <div class="fs-2 fw-bold"><%= stat.users %></div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-4 border-0 shadow-sm rounded-4">
+        <div class="small text-muted">Phòng</div>
+        <div class="fs-2 fw-bold"><%= stat.rooms %></div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-4 border-0 shadow-sm rounded-4">
+        <div class="small text-muted">Đơn đặt</div>
+        <div class="fs-2 fw-bold"><%= stat.bookings %></div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-4 border-0 shadow-sm rounded-4">
+        <div class="small text-muted">Doanh thu (đ)</div>
+        <div class="fs-2 fw-bold"><%= stat.revenue.toLocaleString('vi-VN') %></div>
+      </div>
     </div>
   </div>
 
-  <!-- Quản lý phòng -->
-  <div class="card">
-    <div class="card-header">Quản Lý Phòng</div>
+  <div class="card mt-4 border-0 shadow-sm rounded-4">
     <div class="card-body">
-      <form action="/admin/create-room" method="POST" class="row g-2 mb-3">
-        <div class="col"><input type="text" name="roomNumber" placeholder="Số phòng" class="form-control" required></div>
-        <div class="col"><input type="text" name="type" placeholder="Loại" class="form-control" required></div>
-        <div class="col"><input type="number" name="price" placeholder="Giá" class="form-control" required></div>
-        <div class="col"><input type="text" name="location" placeholder="Địa điểm" class="form-control" required></div>
-        <div class="col"><button type="submit" class="btn btn-primary">Thêm</button></div>
-      </form>
-
+      <h5 class="card-title">Doanh thu theo tháng</h5>
       <div class="table-responsive">
-        <table class="table table-hover">
-          <thead><tr><th>Số phòng</th><th>Loại</th><th>Giá</th><th>Trạng thái</th><th></th></tr></thead>
+        <table class="table align-middle">
+          <thead><tr><th>Tháng</th><th>Doanh thu (đ)</th></tr></thead>
           <tbody>
-            <% rooms.forEach(r => { %>
-              <tr>
-                <td><%= r.roomNumber %></td>
-                <td><%= r.type %></td>
-                <td><%= r.price %>$</td>
-                <td><span class="badge bg-<%= r.status === 'available' ? 'success' : 'danger' %>"><%= r.status === 'available' ? 'Trống' : 'Đã đặt' %></span></td>
-                <td>
-                  <% if (r.status === 'booked') { %>
-                    <form action="/admin/release-room/<%= r._id %>" method="POST" style="display:inline">
-                      <button type="submit" class="btn btn-warning btn-sm">Giải phóng</button>
-                    </form>
-                  <% } %>
-                </td>
-              </tr>
-            <% }) %>
+          <% monthly.forEach(m => { %>
+            <tr>
+              <td><%= m._id.m %>/<%= m._id.y %></td>
+              <td><%= m.total.toLocaleString('vi-VN') %></td>
+            </tr>
+          <% }) %>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 </div>
+
 <%- include('partials/footer') %>

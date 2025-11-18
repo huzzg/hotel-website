@@ -1,135 +1,151 @@
 <%- include('partials/header') %>
 
-<div class="container py-4">
+<div class="container my-4">
+  <ul class="nav nav-pills mb-3">
+    <li class="nav-item"><a class="nav-link" href="/admin/dashboard">Tổng quan</a></li>
+    <li class="nav-item"><a class="nav-link active" href="/admin/rooms">Phòng</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/bookings">Đơn đặt</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/users">Khách hàng</a></li>
+    <li class="nav-item"><a class="nav-link" href="/admin/discounts">Mã giảm giá</a></li>
+  </ul>
+
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0">Quản lý phòng</h4>
-    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#roomModal" onclick="openCreate()">+ Thêm phòng</button>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRoom">+ Thêm phòng</button>
   </div>
 
-  <div class="card border-0 shadow-sm">
-    <div class="card-body">
-      <div class="row g-2 mb-3">
-        <div class="col-md-3"><input id="q" class="form-control" placeholder="Từ khoá (tên/mã/địa điểm)"></div>
-        <div class="col-md-3">
-          <select id="type" class="form-select">
-            <option value="">Tất cả loại</option>
-            <option>Standard</option><option>Superior</option><option>Deluxe</option><option>Suite</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <select id="status" class="form-select">
-            <option value="">Mọi trạng thái</option>
-            <option value="available">available</option>
-            <option value="booked">booked</option>
-            <option value="maintenance">maintenance</option>
-          </select>
-        </div>
-        <div class="col-md-3 d-grid"><button class="btn btn-outline-primary" onclick="loadRooms()">Lọc</button></div>
-      </div>
+  <div class="card p-3 border-0 shadow-sm rounded-4">
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+        <tr>
+          <th>#</th><th>Số phòng</th><th>Loại</th><th>Giá/đêm</th><th>Trạng thái</th><th>Địa điểm</th><th>Ảnh</th><th></th>
+        </tr>
+        </thead>
+        <tbody>
+        <% rooms.forEach((r, idx) => { %>
+          <tr>
+            <td><%= idx+1 %></td>
+            <td><%= r.roomNumber %></td>
+            <td><%= r.type %></td>
+            <td><%= Number(r.price||0).toLocaleString('vi-VN') %></td>
+            <td><span class="badge bg-<%= r.status==='available'?'success':'secondary' %>"><%= r.status %></span></td>
+            <td><%= r.location || '' %></td>
+            <td>
+              <% if(r.image){ %>
+              <img src="<%= r.image %>" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:8px">
+              <% } %>
+            </td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-primary"
+                      data-bs-toggle="modal" data-bs-target="#edit-<%= r._id %>">Sửa</button>
+              <form action="/admin/rooms/<%= r._id %>/delete" method="post" class="d-inline"
+                    onsubmit="return confirm('Xoá phòng này?')">
+                <button class="btn btn-sm btn-outline-danger">Xoá</button>
+              </form>
+            </td>
+          </tr>
 
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead><tr><th>Tên phòng</th><th>Loại</th><th>Giá/đêm</th><th>Vị trí</th><th>TT</th><th></th></tr></thead>
-          <tbody id="tb">
-            <% if (rooms && rooms.length) { %>
-              <% rooms.forEach(r => { %>
-                <tr>
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <img src="<%= r.image || '/images/room1.jpeg' %>" onerror="this.src='/images/room1.jpeg'" style="width:52px;height:36px;object-fit:cover" class="rounded">
-                      <div>
-                        <div class="fw-semibold"><%= r.name %></div>
-                        <div class="small text-muted"><%= r.roomNumber || '' %></div>
-                      </div>
-                    </div>
-                  </td>
-                  <td><%= r.type %></td>
-                  <td><%= (r.price||0).toLocaleString() %>₫</td>
-                  <td><%= r.location || '' %></td>
-                  <td><span class="badge <%= r.status==='available'?'bg-success-subtle text-success':(r.status==='booked'?'bg-warning-subtle text-warning':'bg-secondary') %>"><%= r.status %></span></td>
-                  <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick='openEdit(<%- JSON.stringify(r) %>)'>Sửa</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="delRoom('<%= r._id %>')">Xoá</button>
-                  </td>
-                </tr>
-              <% }) %>
-            <% } else { %>
-              <tr><td colspan="6" class="text-muted">Chưa có dữ liệu.</td></tr>
-            <% } %>
-          </tbody>
-        </table>
-      </div>
+          <!-- Modal Edit -->
+          <div class="modal fade" id="edit-<%= r._id %>" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+              <form class="modal-content" action="/admin/rooms/<%= r._id %>" method="post">
+                <div class="modal-header"><h5 class="modal-title">Sửa phòng</h5>
+                  <button class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-2">
+                  <div class="col-6">
+                    <label class="form-label">Số phòng</label>
+                    <input name="roomNumber" class="form-control" value="<%= r.roomNumber %>" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Loại</label>
+                    <select name="type" class="form-select">
+                      <option <%= r.type==='Standard'?'selected':'' %>>Standard</option>
+                      <option <%= r.type==='Superior'?'selected':'' %>>Superior</option>
+                      <option <%= r.type==='Deluxe'?'selected':'' %>>Deluxe</option>
+                      <option <%= r.type==='Suite'?'selected':'' %>>Suite</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Giá/đêm</label>
+                    <input name="price" type="number" min="0" class="form-control" value="<%= r.price %>" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Trạng thái</label>
+                    <select name="status" class="form-select">
+                      <option value="available" <%= r.status==='available'?'selected':'' %>>available</option>
+                      <option value="booked" <%= r.status==='booked'?'selected':'' %>>booked</option>
+                      <option value="maintain" <%= r.status==='maintain'?'selected':'' %>>maintain</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Địa điểm</label>
+                    <input name="location" class="form-control" value="<%= r.location||'' %>">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Ảnh (URL)</label>
+                    <input name="image" class="form-control" value="<%= r.image||'' %>">
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button>
+                  <button class="btn btn-primary">Lưu</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        <% }) %>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
 
-<!-- Modal -->
-<div class="modal fade" id="roomModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <form class="modal-content" onsubmit="return saveRoom(event)">
-      <div class="modal-header">
-        <h5 class="modal-title" id="roomTitle">Thêm phòng</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="_id">
-        <div class="row g-3">
-          <div class="col-md-6"><label class="form-label">Tên phòng</label><input id="name" class="form-control" required></div>
-          <div class="col-md-3"><label class="form-label">Loại</label>
-            <select id="type2" class="form-select" required>
-              <option>Standard</option><option>Superior</option><option selected>Deluxe</option><option>Suite</option>
-            </select>
-          </div>
-          <div class="col-md-3"><label class="form-label">Mã phòng</label><input id="roomNumber" class="form-control"></div>
-          <div class="col-md-4"><label class="form-label">Giá (VND)</label><input id="price" type="number" min="0" class="form-control" required></div>
-          <div class="col-md-4"><label class="form-label">Vị trí</label><input id="location" class="form-control" placeholder="Hà Nội"></div>
-          <div class="col-md-4"><label class="form-label">Trạng thái</label>
-            <select id="status2" class="form-select">
-              <option value="available">available</option>
-              <option value="booked">booked</option>
-              <option value="maintenance">maintenance</option>
-            </select>
-          </div>
-          <div class="col-md-12"><label class="form-label">Ảnh đại diện (URL /images/...)</label><input id="image" class="form-control" placeholder="/images/room1.jpeg"></div>
-          <div class="col-md-12"><label class="form-label">Mô tả</label><textarea id="description" rows="3" class="form-control"></textarea></div>
+<!-- Modal Add -->
+<div class="modal fade" id="addRoom" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" action="/admin/rooms" method="post">
+      <div class="modal-header"><h5 class="modal-title">Thêm phòng</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body row g-2">
+        <div class="col-6">
+          <label class="form-label">Số phòng</label>
+          <input name="roomNumber" class="form-control" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Loại</label>
+          <select name="type" class="form-select">
+            <option>Standard</option><option>Superior</option>
+            <option selected>Deluxe</option><option>Suite</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Giá/đêm</label>
+          <input name="price" type="number" min="0" class="form-control" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Trạng thái</label>
+          <select name="status" class="form-select">
+            <option value="available" selected>available</option>
+            <option value="booked">booked</option>
+            <option value="maintain">maintain</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Địa điểm</label>
+          <input name="location" class="form-control">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Ảnh (URL)</label>
+          <input name="image" class="form-control">
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Huỷ</button>
-        <button class="btn btn-primary" type="submit">Lưu</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button>
+        <button class="btn btn-primary">Thêm</button>
       </div>
     </form>
   </div>
 </div>
-
-<script>
-  let editing=null;
-
-  function openCreate(){
-    editing=null; roomTitle.innerText='Thêm phòng';
-    ['_id','name','roomNumber','price','location','image','description'].forEach(id=>document.getElementById(id).value='');
-    type2.value='Deluxe'; status2.value='available';
-  }
-  function openEdit(r){
-    editing=r._id; roomTitle.innerText='Sửa phòng';
-    _id.value=r._id||''; name.value=r.name||''; type2.value=r.type||'Deluxe';
-    roomNumber.value=r.roomNumber||''; price.value=r.price||0; location.value=r.location||'';
-    status2.value=r.status||'available'; image.value=r.image||''; description.value=r.description||'';
-    new bootstrap.Modal(roomModal).show();
-  }
-  async function saveRoom(e){
-    e.preventDefault();
-    const body={name:name.value,type:type2.value,roomNumber:roomNumber.value,price:Number(price.value||0),location:location.value,status:status2.value,image:image.value,description:description.value};
-    const url= editing? `/admin/api/rooms/${editing}`:'/admin/api/rooms';
-    const method= editing?'PUT':'POST';
-    const res= await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const data= await res.json(); if(data.ok){ bootstrap.Modal.getInstance(roomModal).hide(); location.reload(); } else alert('Lưu thất bại');
-  }
-  async function delRoom(id){
-    if(!confirm('Xoá phòng này?')) return;
-    const res= await fetch('/admin/api/rooms/'+id,{method:'DELETE'}); const d= await res.json();
-    if(d.ok) location.reload(); else alert('Không xoá được');
-  }
-</script>
 
 <%- include('partials/footer') %>
