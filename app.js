@@ -6,6 +6,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const flash = require('connect-flash');
 const methodOverride = require('method-override');
+const cookieParser = require('cookie-parser');
 const app = express();
 
 // ===== View & static =====
@@ -15,6 +16,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(methodOverride('_method'));
+app.use(cookieParser()); // cần cho cookie token
 
 // ===== DB connect =====
 require('./config/db');
@@ -22,7 +24,7 @@ require('./config/db');
 // ===== Session =====
 app.use(
   session({
-    secret: 'phenikaa_secret_key',
+    secret: process.env.SESSION_SECRET || 'phenikaa_secret_key',
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
@@ -35,18 +37,25 @@ app.use(
 
 app.use(flash());
 
-// Biến dùng chung cho view
+// ===== Attach user (session-first, fallback JWT if you have) =====
+try {
+  const { attachUser } = require('./middleware/authMiddleware');
+  app.use(attachUser);
+} catch (e) {
+  // nếu không có middleware attachUser thì bỏ qua (để tránh crash)
+  console.warn('attachUser middleware not found, skipping attachUser.');
+}
+
+// ===== Make current path available to views =====
 app.use((req, res, next) => {
-  res.locals.currentUser = req.session.user || null;
+  res.locals.currentPath = req.originalUrl || req.path || '/';
+  res.locals.currentUser = req.session ? req.session.user : null;
   res.locals.success = req.flash('success');
   res.locals.error = req.flash('error');
   next();
 });
 
-// ===== Models =====
-const Room = require('./models/Room');
-
-// ===== Routes =====
+// ===== Routes (giữ nguyên mounts hiện có) =====
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
@@ -59,15 +68,15 @@ app.use('/user', userRoutes);
 app.use('/search', searchRoutes);
 app.use('/payment', paymentRoutes);
 
-// ===== Trang chủ (luôn truyền rooms, kể cả khi DB lỗi) =====
+// ===== Home =====
+const Room = require('./models/Room');
 app.get('/', async (req, res, next) => {
   try {
     let rooms = [];
     try {
-      // Lấy 2 phòng nổi bật để hiển thị; nếu DB chưa kết nối sẽ vào catch
       rooms = await Room.find().limit(2).lean();
     } catch (e) {
-      rooms = []; // fallback an toàn để view không lỗi
+      rooms = [];
     }
     res.render('index', { title: 'Khách sạn Phenikaa', rooms });
   } catch (err) {
@@ -77,7 +86,7 @@ app.get('/', async (req, res, next) => {
 
 // ===== Error handler =====
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err.message);
+  console.error('❌ Error:', err.stack || err.message);
   res.status(500).send('Something went wrong!');
 });
 

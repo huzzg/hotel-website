@@ -135,3 +135,48 @@ html, body{
   font-weight: 600;
   font-size: 12px;
 }
+
+/* FIX: modal/popover always on top and positioned correctly */
+.modal,
+.popover,
+.dropdown-menu {
+  z-index: 30000 !important;
+}
+
+.modal-backdrop {
+  z-index: 29990 !important;
+}
+
+/* ensure modal is fixed and centered */
+.modal {
+  position: fixed !important;
+  top: 8% !important;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  display: block;
+}
+
+/* if modal-dialog was pushed down, centre it visually */
+.modal .modal-dialog {
+  transform: translateY(0) !important;
+  margin: 0 auto;
+}
+
+/* If parent containers had overflow that hides modal, allow pointer events on navbar/footer */
+nav.navbar, footer {
+  pointer-events: auto;
+}
+
+/* --- Modal & popover fixes --- */
+.modal, .popover, .dropdown-menu { z-index: 30000 !important; }
+.modal-backdrop { z-index: 29990 !important; }
+.modal { position: fixed !important; top: 8% !important; left: 0; right: 0; margin: 0 auto; display: block; }
+.modal .modal-dialog { transform: translateY(0) !important; margin: 0 auto; }
+
+/* Cleanup overlay prevention */
+.modal-backdrop, .overlay, .backdrop, .mask-overlay { pointer-events: auto; }
+.dropdown-menu, .modal { z-index: 30000 !important; }
+
+/* Make direct auth links look nicer */
+.nav-auth-links .nav-link { margin-left: .6rem; background: rgba(255,255,255,0.06); padding: .35rem .6rem; border-radius:6px; color:#fff; }

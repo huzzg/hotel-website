@@ -48,15 +48,23 @@ router.post('/login', async (req, res, next) => {
       });
     }
 
+    // Chuẩn hoá object user lưu vào session: có cả id (string) và _id để tương thích
     req.session.user = {
+      id: String(user._id),
       _id: user._id,
       username: user.username,
       role: user.role || 'user',
       email: user.email
     };
-    res.locals.currentUser = req.session.user;
 
-    return res.redirect(user.role === 'admin' ? '/admin/dashboard' : '/');
+    // đảm bảo session được persist trước khi redirect (tránh race)
+    req.session.save((err) => {
+      if (err) {
+        console.warn('Session save error after login:', err);
+      }
+      res.locals.currentUser = req.session.user;
+      return res.redirect(user.role === 'admin' ? '/admin/dashboard' : '/');
+    });
   } catch (err) {
     next(err);
   }
@@ -102,15 +110,20 @@ router.post('/register', async (req, res, next) => {
       profile: { name, phone }
     });
 
+    // lưu session giống format login
     req.session.user = {
+      id: String(user._1d || user._id),
       _id: user._id,
       username: user.username,
       role: 'user',
       email: user.email
     };
 
-    res.locals.currentUser = req.session.user;
-    res.redirect('/');
+    req.session.save((err) => {
+      if (err) console.warn('Session save error after register:', err);
+      res.locals.currentUser = req.session.user;
+      return res.redirect('/');
+    });
   } catch (err) {
     next(err);
   }
@@ -118,7 +131,14 @@ router.post('/register', async (req, res, next) => {
 
 // ========== GET: Logout ==========
 router.get('/logout', (req, res) => {
-  req.session.destroy(() => res.redirect('/auth/login'));
+  // destroy session và redirect về login
+  req.session.destroy((err) => {
+    // clear cookie nếu cần (connect.sid)
+    try {
+      res.clearCookie('connect.sid');
+    } catch (e) {}
+    return res.redirect('/auth/login');
+  });
 });
 
 module.exports = router;

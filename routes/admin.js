@@ -1,6 +1,8 @@
 // routes/admin.js
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 
 const requireAdmin = require('../middleware/requireAdmin');
 const User = require('../models/User');
@@ -12,6 +14,24 @@ const Discount = require('../models/Discount');
 // Bảo vệ tất cả route admin
 router.use(requireAdmin);
 
+// --- multer cho upload ảnh phòng ---
+const multer = require('multer');
+const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'rooms');
+
+// đảm bảo thư mục tồn tại
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const safe = file.originalname.replace(/\s+/g, '-');
+    cb(null, Date.now() + '-' + safe);
+  }
+});
+const upload = multer({ storage });
+
 // ========== DASHBOARD ==========
 router.get('/dashboard', async (req, res, next) => {
   try {
@@ -22,7 +42,7 @@ router.get('/dashboard', async (req, res, next) => {
       Payment.aggregate([
         { $match: { status: 'paid' } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
-      ])
+      ]).catch(() => [])
     ]);
 
     const revenue = paidAgg && paidAgg.length ? paidAgg[0].total : 0;
@@ -36,7 +56,7 @@ router.get('/dashboard', async (req, res, next) => {
         }
       },
       { $sort: { '_id.y': 1, '_id.m': 1 } }
-    ]);
+    ]).catch(() => []);
 
     res.render('admin-dashboard', {
       title: 'Admin • Dashboard',
@@ -51,29 +71,39 @@ router.get('/dashboard', async (req, res, next) => {
 // ========== ROOMS ==========
 router.get('/rooms', async (req, res, next) => {
   try {
-    const rooms = await Room.find({}).sort({ createdAt: -1 });
+    const rooms = await Room.find({}).sort({ createdAt: -1 }).lean();
     res.render('admin-rooms', { title: 'Admin • Quản lý phòng', rooms });
   } catch (e) { next(e); }
 });
 
-router.post('/rooms', async (req, res, next) => {
+// POST thêm phòng (có upload ảnh)
+router.post('/rooms', upload.single('image'), async (req, res, next) => {
   try {
-    const { roomNumber, type, price, status, location, image } = req.body;
+    const { roomNumber, type, price, status, location } = req.body;
+    const image = req.file ? '/uploads/rooms/' + req.file.filename : (req.body.existingImage || '');
     await Room.create({ roomNumber, type, price, status, location, image });
     res.redirect('/admin/rooms');
   } catch (e) { next(e); }
 });
 
-router.post('/rooms/:id', async (req, res, next) => {
+// POST cập nhật phòng (có upload ảnh)
+router.post('/rooms/:id', upload.single('image'), async (req, res, next) => {
   try {
-    const { roomNumber, type, price, status, location, image } = req.body;
-    await Room.findByIdAndUpdate(req.params.id, {
-      roomNumber, type, price, status, location, image
-    });
+    const { roomNumber, type, price, status, location } = req.body;
+    const update = { roomNumber, type, price, status, location };
+
+    if (req.file) {
+      update.image = '/uploads/rooms/' + req.file.filename;
+    } else if (req.body.existingImage) {
+      update.image = req.body.existingImage;
+    }
+
+    await Room.findByIdAndUpdate(req.params.id, update);
     res.redirect('/admin/rooms');
   } catch (e) { next(e); }
 });
 
+// DELETE (theo style cũ nếu bạn đang dùng method-override hoặc POST /:id/delete)
 router.post('/rooms/:id/delete', async (req, res, next) => {
   try {
     await Room.findByIdAndDelete(req.params.id);

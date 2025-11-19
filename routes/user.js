@@ -9,21 +9,44 @@ const User = require('../models/User');
 let Booking = null;
 try { Booking = require('../models/Booking'); } catch (_) { Booking = null; }
 
-// ===== Auth middleware =====
+//
+// requireAuth: hỗ trợ cả session-based (req.session.user) và JWT cookie (token)
+// Nếu user đã login bằng session (req.session.user) thì dùng đó.
+// Nếu dùng JWT (cookie 'token') thì verify token.
+// Nếu không có cả 2 -> redirect /auth/login
+//
 function requireAuth(req, res, next) {
   try {
+    // 1) session-based (ưu tiên)
+    if (req.session && req.session.user) {
+      // chuẩn hoá req.user giống payload JWT để các route dùng sau không cần thay đổi
+      const s = req.session.user;
+      req.user = {
+        id: s._id || s.id || s._id || s.userId,
+        username: s.username,
+        email: s.email,
+        role: s.role || 'user'
+      };
+      return next();
+    }
+
+    // 2) jwt cookie
     const token = req.cookies?.token;
-    if (!token) return res.redirect('/auth/login');
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload;
-    next();
-  } catch {
+    if (token) {
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = payload;
+      return next();
+    }
+
+    // 3) không có gì -> redirect login
+    return res.redirect('/auth/login');
+  } catch (err) {
     return res.redirect('/auth/login');
   }
 }
 
 /* ================== HỒ SƠ ================== */
-// GET /profile  (và /user/profile nếu bạn mount ở '/')
+// GET /profile  (và /user/profile nếu router được mount ở '/user')
 router.get(['/profile', '/user/profile'], requireAuth, async (req, res, next) => {
   try {
     const me = await User.findById(req.user.id).lean();
@@ -39,7 +62,7 @@ router.get(['/profile', '/user/profile'], requireAuth, async (req, res, next) =>
   } catch (err) { next(err); }
 });
 
-// POST /profile
+// POST /profile (cập nhật) - hỗ trợ cả /profile và /user/profile
 router.post(['/profile', '/user/profile'], requireAuth, async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -72,22 +95,35 @@ router.post(['/profile', '/user/profile'], requireAuth, async (req, res, next) =
       { new: true }
     ).lean();
 
-    // cập nhật lại JWT để header hiển thị tên mới luôn
-    const payload = {
-      id: updated._id,
-      email: updated.email,
-      name: updated.profile?.name || updated.username || '',
-      username: updated.username || '',
-      role: updated.role || 'user',
-      avatar: updated.avatar || '',
-      phone: updated.phone || updated.profile?.phone || ''
-    };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.cookie('token', token, {
-      httpOnly: true, sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    // nếu bạn dùng session, cập nhật lại session.user để hiển thị tên/email mới
+    if (req.session && req.session.user) {
+      req.session.user.email = updated.email;
+      req.session.user.username = updated.username;
+      // _id giữ nguyên
+    }
+
+    // Nếu bạn có JWT cookie hệ thống (optional) — update token cookie
+    try {
+      const payload = {
+        id: updated._id,
+        email: updated.email,
+        name: updated.profile?.name || updated.username || '',
+        username: updated.username || '',
+        role: updated.role || 'user',
+        avatar: updated.avatar || '',
+        phone: updated.phone || updated.profile?.phone || ''
+      };
+      if (process.env.JWT_SECRET) {
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.cookie('token', token, {
+          httpOnly: true, sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+      }
+    } catch (e) {
+      // ignore if JWT not configured
+    }
 
     res.render('profile', {
       title: 'Hồ sơ cá nhân',
